@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#6C63FF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>DP</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ========== LOGIN SCREEN ========== -->
+  <div id="login-screen">
+    <div class="login-bg-circle c1"></div>
+    <div class="login-bg-circle c2"></div>
+
+    <div class="login-logo">
+      <img src="icon-192.png" alt="DP" />
+    </div>
+    <div class="login-title" id="login-title">Apna PIN Set Karo</div>
+    <div class="login-sub" id="login-sub">Pehli baar hai — naya 4-digit PIN banao</div>
+
+    <!-- PIN Dots -->
+    <div class="pin-dots" id="pin-dots">
+      <span class="dot" id="dot-0"></span>
+      <span class="dot" id="dot-1"></span>
+      <span class="dot" id="dot-2"></span>
+      <span class="dot" id="dot-3"></span>
+    </div>
+
+    <!-- Error msg -->
+    <div class="pin-error" id="pin-error"></div>
+
+    <!-- Keypad -->
+    <div class="keypad">
+      <button class="key" onclick="pressKey('1')">1</button>
+      <button class="key" onclick="pressKey('2')">2</button>
+      <button class="key" onclick="pressKey('3')">3</button>
+      <button class="key" onclick="pressKey('4')">4</button>
+      <button class="key" onclick="pressKey('5')">5</button>
+      <button class="key" onclick="pressKey('6')">6</button>
+      <button class="key" onclick="pressKey('7')">7</button>
+      <button class="key" onclick="pressKey('8')">8</button>
+      <button class="key" onclick="pressKey('9')">9</button>
+      <button class="key key-empty"></button>
+      <button class="key" onclick="pressKey('0')">0</button>
+      <button class="key key-del" onclick="pressDelete()"><i class="fa-solid fa-delete-left"></i></button>
+    </div>
+  </div>
+
+  <!-- ========== SPLASH SCREEN ========== -->
+  <div id="splash">
+    <div class="splash-icon"><img src="icon-192.png" alt="logo" style="width:90px;height:90px;border-radius:22px;box-shadow:0 8px 32px rgba(0,0,0,0.25);" /></div>
+    <h1>DP</h1>
+    <p>Loading...</p>
+  </div>
+
+  <!-- ========== MAIN APP ========== -->
+  <div id="main-app" class="hidden">
+
+    <!-- TOP HEADER -->
+    <header class="top-header">
+      <span id="page-title">DP</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="header-right" id="khata-header-btn" style="display:none;">
+          <button class="icon-btn" onclick="openAddKhata()"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        <button class="icon-btn" id="logout-btn" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
+        <button class="icon-btn" id="tt-upload-btn" style="display:none;" onclick="document.getElementById('excel-file-input').click()" title="Timetable Update Karo"><i class="fa-solid fa-file-arrow-up"></i></button>
+      </div>
+    </header>
+
+    <!-- hidden file input -->
+    <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(event)" />
+
+    <!-- ========== HOME PAGE ========== -->
+    <div id="page-home" class="page active">
+      <div class="home-welcome">
+        <div class="welcome-avatar"><i class="fa-solid fa-user-graduate"></i></div>
+        <h2>Namaste! 👋</h2>
+        <p>Apna section choose karo</p>
+      </div>
+      <div class="home-cards">
+        <div class="home-card timetable-card" onclick="showPage('timetable')">
+          <div class="card-icon"><i class="fa-solid fa-calendar-days"></i></div>
+          <div class="card-info">
+            <h3>Class Timetable</h3>
+            <p>Apna class schedule dekho</p>
+          </div>
+          <i class="fa-solid fa-chevron-right card-arrow"></i>
+        </div>
+        <div class="home-card khata-card" onclick="showPage('khata')">
+          <div class="card-icon"><i class="fa-solid fa-book-open"></i></div>
+          <div class="card-info">
+            <h3>Khata Book</h3>
+            <p>Lena-dena ka hisaab</p>
+          </div>
+          <i class="fa-solid fa-chevron-right card-arrow"></i>
+        </div>
+      </div>
+      <div class="home-summary" id="home-summary">
+        <!-- summary loaded by JS -->
+      </div>
+    </div>
+
+    <!-- ========== TIMETABLE PAGE ========== -->
+    <div id="page-timetable" class="page">
+
+      <!-- Upload screen (shown when no timetable saved) -->
+      <div id="tt-upload-screen">
+        <div class="tt-upload-icon"><i class="fa-solid fa-calendar-plus"></i></div>
+        <h3>Apna Timetable Upload Karo</h3>
+        <p>Excel file (.xlsx) upload karo aur apna class schedule dekho</p>
+        <button class="btn-upload-excel" onclick="document.getElementById('excel-file-input').click()">
+          <i class="fa-solid fa-file-excel"></i> Excel File Choose Karo
+        </button>
+        <div class="tt-format-hint">
+          <p><b>Expected format:</b></p>
+          <p>Row 1: Title (optional)</p>
+          <p>Row 2: Days | 9:30-10:30 | 10:30-11:30 | ...</p>
+          <p>Row 3+: Monday | Subject | Subject | ...</p>
+        </div>
+      </div>
+
+      <!-- Actual timetable (shown after upload) -->
+      <div id="tt-main" class="hidden">
+        <div class="day-tabs" id="day-tabs"></div>
+        <div id="timetable-content"></div>
+      </div>
+    </div>
+
+    <!-- ========== KHATA BOOK PAGE ========== -->
+    <div id="page-khata" class="page">
+      <div class="khata-summary-bar" id="khata-summary-bar">
+        <!-- filled by JS -->
+      </div>
+      <div class="search-bar">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="search-input" placeholder="Naam se dhundo..." oninput="renderKhataList()" />
+      </div>
+      <div id="khata-list">
+        <!-- filled by JS -->
+      </div>
+      <div id="khata-empty" class="empty-state hidden">
+        <i class="fa-solid fa-book-open"></i>
+        <p>Koi entry nahi hai<br/>+ button se add karo</p>
+      </div>
+    </div>
+
+    <!-- ========== BOTTOM NAV ========== -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" id="nav-home" onclick="showPage('home')">
+        <i class="fa-solid fa-house"></i>
+        <span>Home</span>
+      </button>
+      <button class="nav-btn" id="nav-timetable" onclick="showPage('timetable')">
+        <i class="fa-solid fa-calendar-days"></i>
+        <span>Timetable</span>
+      </button>
+      <button class="nav-btn" id="nav-khata" onclick="showPage('khata')">
+        <i class="fa-solid fa-book-open"></i>
+        <span>Khata</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ========== ADD KHATA MODAL ========== -->
+  <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModal(event)">
+    <div class="modal-sheet" id="modal-sheet">
+      <div class="modal-handle"></div>
+      <h3 id="modal-title">Naya Khata</h3>
+
+      <div class="form-group">
+        <label>Naam <span class="req">*</span></label>
+        <input type="text" id="input-naam" placeholder="Jaise: Rahul, Amit..." />
+      </div>
+      <div class="form-group">
+        <label>WhatsApp Number <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+        <div class="phone-input-wrap">
+          <span class="phone-prefix">+91</span>
+          <input type="tel" id="input-phone" placeholder="98765 43210" maxlength="10" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Kitna paisa? <span class="req">*</span></label>
+        <input type="number" id="input-amount" placeholder="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <div class="type-toggle">
+          <button class="type-btn active" id="btn-lena" onclick="setType('lena')">
+            <i class="fa-solid fa-arrow-down"></i> Lena Hai (Wo mujhe dega)
+          </button>
+          <button class="type-btn" id="btn-dena" onclick="setType('dena')">
+            <i class="fa-solid fa-arrow-up"></i> Dena Hai (Main dunga)
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="input-note" placeholder="Kisi cheez ke liye..." />
+      </div>
+      <div class="form-group">
+        <label>Tarikh</label>
+        <input type="date" id="input-date" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeAllModals()">Cancel</button>
+        <button class="btn-save" id="btn-save-khata" onclick="saveKhata()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== KHATA DETAIL MODAL ========== -->
+  <div id="detail-overlay" class="modal-overlay hidden" onclick="closeDetail(event)">
+    <div class="modal-sheet" id="detail-sheet">
+      <div class="modal-handle"></div>
+      <div class="detail-header" id="detail-header"></div>
+      <div class="detail-transactions" id="detail-transactions"></div>
+      <div class="detail-actions">
+        <button class="btn-add-txn" onclick="openAddTransaction()"><i class="fa-solid fa-plus"></i> Nayi Entry</button>
+        <button class="btn-whatsapp" id="btn-whatsapp" onclick="sendWhatsAppReminder()"><i class="fa-brands fa-whatsapp"></i> Reminder</button>
+        <button class="btn-delete-person" onclick="deletePerson()"><i class="fa-solid fa-trash"></i> Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== ADD TRANSACTION MODAL ========== -->
+  <div id="txn-overlay" class="modal-overlay hidden" onclick="closeTxnModal(event)">
+    <div class="modal-sheet" id="txn-sheet">
+      <div class="modal-handle"></div>
+      <h3>Nayi Entry - <span id="txn-person-name"></span></h3>
+      <div class="form-group">
+        <label>Kitna paisa? <span class="req">*</span></label>
+        <input type="number" id="txn-amount" placeholder="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <div class="type-toggle">
+          <button class="type-btn active" id="txn-btn-lena" onclick="setTxnType('lena')">
+            <i class="fa-solid fa-arrow-down"></i> Lena Hai
+          </button>
+          <button class="type-btn" id="txn-btn-dena" onclick="setTxnType('dena')">
+            <i class="fa-solid fa-arrow-up"></i> Dena Hai
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="txn-note" placeholder="Kisi cheez ke liye..." />
+      </div>
+      <div class="form-group">
+        <label>Tarikh</label>
+        <input type="date" id="txn-date" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeTxnModal()">Cancel</button>
+        <button class="btn-save" onclick="saveTransaction()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
