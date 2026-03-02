@@ -73,14 +73,15 @@ function parseSheetRows(rows) {
 
     let curSubject = null;
     let curRoom    = '';
+    let curRawCell = null;
     let startIdx   = 0;
 
     for (let j = 0; j <= cells.length; j++) {
       const rawCell = j < cells.length ? (cells[j] ? String(cells[j]).trim() : null) : null;
-      const isNewSubject = rawCell && rawCell !== curSubject;
+      const isNewCell = rawCell && rawCell !== curRawCell;
       const isEnd = j === cells.length;
 
-      if ((isNewSubject || isEnd) && curSubject !== null) {
+      if ((isNewCell || isEnd) && curSubject !== null) {
         // Calculate time range: from timeSlots[startIdx] start → timeSlots[j-1] end
         const tStart = slotStart(timeSlots[startIdx] || '');
         const tEnd   = slotEnd(timeSlots[Math.min(j, timeSlots.length) - 1] || '');
@@ -92,10 +93,11 @@ function parseSheetRows(rows) {
         });
       }
 
-      if (rawCell && (isNewSubject || curSubject === null)) {
+      if (rawCell && (isNewCell || curSubject === null)) {
         const { subject, room } = extractSubjectRoom(rawCell);
         curSubject = subject;
         curRoom    = room;
+        curRawCell = rawCell;
         startIdx   = j;
       } else if (!rawCell && curSubject === null) {
         startIdx = j + 1; // skip leading empty
@@ -127,14 +129,24 @@ function slotEnd(slot) {
 
 function extractSubjectRoom(raw) {
   if (!raw) return { subject: '', room: '' };
-  // Try to extract room code: patterns like C-205, G1, Lab-1, R-101
-  const roomMatch = raw.match(/\b([A-Z]{1,3}-\d+|\bLab-\d+\b|\bGround\b)/);
   let room = '';
   let subject = raw.trim();
+
+  // Pattern 1: Room in brackets — "Subject (C-205)" or "Subject (Lab-1)" or "Subject (G1)"
+  const bracketMatch = raw.match(/\(([^)]+)\)\s*$/);
+  if (bracketMatch) {
+    room = bracketMatch[1].trim();
+    subject = raw.replace(bracketMatch[0], '').trim();
+    return { subject, room };
+  }
+
+  // Pattern 2: Room code after subject — "Subject C-205", "Subject Lab-1"
+  const roomMatch = raw.match(/\b([A-Z]{1,4}-?\d{1,4}[A-Z]?|\bLab[-\s]?\d+\b|\bGround\b|\b[A-Z]-\d+[A-Z]?\b)\s*$/i);
   if (roomMatch) {
-    room = roomMatch[0];
+    room = roomMatch[0].trim();
     subject = raw.replace(roomMatch[0], '').trim().replace(/\s+/g, ' ');
   }
+
   return { subject, room };
 }
 
@@ -1352,6 +1364,12 @@ function hideGudiyaBubble() {
     bubble.classList.add('hidden');
     bubble.classList.remove('gudiya-pop');
   }
+  // Stop Google TTS audio
+  if (window._gudiyaAudio) {
+    window._gudiyaAudio.pause();
+    window._gudiyaAudio.currentTime = 0;
+  }
+  // Stop Web Speech API fallback
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 
@@ -1366,77 +1384,56 @@ function toggleGudiyaBubble() {
 }
 
 function speakGudiya(text) {
+  // Remove emojis for cleaner speech
+  const clean = text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[●•✓✎⚡↑↓]/gu, '').replace(/\s+/g,' ').trim();
+  if (!clean) return;
+
+  // Use Google Translate TTS — real natural female Hindi voice
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(clean)}&tl=hi&client=tw-ob`;
+
+  // Stop any previous audio
+  if (window._gudiyaAudio) {
+    window._gudiyaAudio.pause();
+    window._gudiyaAudio.currentTime = 0;
+  }
+
+  const audio = new Audio(url);
+  audio.playbackRate = 1.0;   // Normal speed = natural
+  audio.volume = 1.0;
+  window._gudiyaAudio = audio;
+
+  audio.onended = () => {
+    clearTimeout(gudiyaBubbleTimer);
+    gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 2000);
+  };
+
+  audio.onerror = () => {
+    // Fallback to Web Speech API if Google TTS fails (offline etc)
+    speakGudiyaFallback(clean);
+  };
+
+  audio.play().catch(() => speakGudiyaFallback(clean));
+}
+
+// Fallback: Web Speech API (when offline or Google TTS blocked)
+function speakGudiyaFallback(clean) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
 
-  // Remove emojis for cleaner speech
-  const clean = text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[●•✓✎⚡↑↓]/gu, '').replace(/\s+/g,' ').trim();
-
   const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang = 'hi-IN';
   utter.rate = 0.95;
   utter.pitch = 1.55;
   utter.volume = 1.0;
 
   const voices = window.speechSynthesis.getVoices();
-  let picked = null;
+  let picked = voices.find(v => /google/i.test(v.name) && v.lang.startsWith('hi'))
+    || voices.find(v => /swara/i.test(v.name))
+    || voices.find(v => v.lang.startsWith('hi'))
+    || voices.find(v => /zira|neerja/i.test(v.name))
+    || voices.find(v => /female|woman/i.test(v.name));
+  if (picked) utter.voice = picked;
 
-  // === BEST NATURAL FEMALE VOICES (priority order) ===
-
-  // 1. Google Hindi (Android/Chrome — most natural)
-  picked = voices.find(v => /google/i.test(v.name) && v.lang.startsWith('hi'));
-
-  // 2. Microsoft Online/Neural Hindi voices (Windows 11 — very natural)
-  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /online|neural/i.test(v.name));
-
-  // 3. Microsoft Swara (Hindi female, Win10/11)
-  if (!picked) picked = voices.find(v => /swara/i.test(v.name));
-
-  // 4. Any Hindi voice
-  if (!picked) picked = voices.find(v => v.lang.startsWith('hi'));
-
-  // 5. Microsoft Neerja (en-IN female — natural for Hinglish)
-  if (!picked) picked = voices.find(v => /neerja/i.test(v.name));
-
-  // 6. Google en-IN 
-  if (!picked) picked = voices.find(v => /google/i.test(v.name) && /en.in/i.test(v.lang));
-
-  // 7. Zira (Windows default female — thin voice)
-  if (!picked) picked = voices.find(v => /zira/i.test(v.name));
-
-  // 8. Hazel / Susan / Samantha
-  if (!picked) picked = voices.find(v => /hazel|susan|samantha|karen/i.test(v.name));
-
-  // 9. Any female sounding
-  if (!picked) picked = voices.find(v => /female|woman/i.test(v.name));
-
-  if (picked) {
-    utter.voice = picked;
-    // Adjust per voice type for best result
-    if (/zira|hazel|susan|samantha|karen/i.test(picked.name)) {
-      // English voices — slightly higher pitch, sounds more girly
-      utter.lang = 'hi-IN';
-      utter.pitch = 1.6;
-      utter.rate = 0.88;
-    } else if (/swara/i.test(picked.name)) {
-      // Swara is decent but needs tuning
-      utter.lang = 'hi-IN';
-      utter.pitch = 1.5;
-      utter.rate = 0.9;
-    } else if (/google/i.test(picked.name)) {
-      // Google voices are naturally good
-      utter.lang = 'hi-IN';
-      utter.pitch = 1.45;
-      utter.rate = 0.93;
-    } else {
-      utter.lang = 'hi-IN';
-      utter.pitch = 1.55;
-      utter.rate = 0.92;
-    }
-  } else {
-    utter.lang = 'hi-IN';
-  }
-
-  // Auto-hide bubble when speech ends
   utter.onend = () => {
     clearTimeout(gudiyaBubbleTimer);
     gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 2000);
