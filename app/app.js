@@ -703,9 +703,24 @@ function showToast(msg) {
 }
 
 // ==================== AUTH / LOGIN ====================
-const STORAGE_PIN   = 'campuskit_pin';
-const STORAGE_SESS  = 'campuskit_session';
-const STORAGE_NAME  = 'campuskit_username';
+const STORAGE_PIN    = 'campuskit_pin';
+const STORAGE_SESS   = 'campuskit_session';
+const STORAGE_NAME   = 'campuskit_username';
+const STORAGE_GENDER = 'campuskit_gender';
+
+let selectedGender = localStorage.getItem('campuskit_gender') || 'male';
+
+function selectGender(g) {
+  selectedGender = g;
+  document.getElementById('gender-male').classList.toggle('active', g === 'male');
+  document.getElementById('gender-female').classList.toggle('active', g === 'female');
+}
+function getUserGender() {
+  return localStorage.getItem(STORAGE_GENDER) || 'male';
+}
+function getHonorific() {
+  return getUserGender() === 'female' ? 'didi' : 'bhaiya';
+}
 
 let pinBuffer = '';
 let pinStep = 'setup';   // 'name' | 'setup' | 'confirm' | 'login'
@@ -728,6 +743,7 @@ function submitName() {
   const val = document.getElementById('input-user-name').value.trim();
   if (!val) { document.getElementById('input-user-name').focus(); return; }
   localStorage.setItem(STORAGE_NAME, val);
+  localStorage.setItem(STORAGE_GENDER, selectedGender);
   showPinStep();
   pinStep = 'setup';
   setLoginUI('Set Your PIN', 'Create a 4-digit PIN to secure your app');
@@ -1169,8 +1185,9 @@ function getTimeGreeting() {
 }
 
 function buildGudiyaMessages() {
-  const name = getUserName() || 'Bhaiya';
+  const name = getUserName() || 'Friend';
   const firstName = name.split(' ')[0];
+  const h = getHonorific(); // 'bhaiya' or 'didi'
   const time = getTimeGreeting();
   const today = getTodayName();
   const streak = getStreak();
@@ -1193,29 +1210,29 @@ function buildGudiyaMessages() {
 
   // ---- Time-based greetings ----
   if (time === 'subah') {
-    msgs.push(`Good morning ${firstName}! ☀️ Uth gaye? Chalo aaj ka din shuru karte hain!`);
-    msgs.push(`Subah subah aap aa gaye! Main to wait kar rhi thi ${firstName} bhaiya! 😊`);
+    msgs.push(`Good morning ${firstName} ${h}! ☀️ Uth gaye? Chalo aaj ka din shuru karte hain!`);
+    msgs.push(`Subah subah aap aa gaye! Main to wait kar rhi thi ${firstName} ${h}! 😊`);
     msgs.push(`Gudiya ko bhi neend aa rhi thi, but aapke liye jag gayi! 🥱😊`);
   } else if (time === 'dopahar') {
-    msgs.push(`${firstName} bhaiya! Dopahar ho gyi, lunch kiya? 🍽️`);
+    msgs.push(`${firstName} ${h}! Dopahar ho gyi, lunch kiya? 🍽️`);
     msgs.push(`Hello ${firstName}! Dopahar mein bhi padhai? Waah! 👏`);
-    msgs.push(`Garmi mein paani peete rehna ${firstName} bhaiya! 💧`);
+    msgs.push(`Garmi mein paani peete rehna ${firstName} ${h}! 💧`);
   } else if (time === 'shaam') {
     msgs.push(`Good evening ${firstName}! Kaisa rha aaj ka din? 🌇`);
-    msgs.push(`Shaam ho gyi ${firstName} bhaiya! Thoda rest karo! 😊`);
-    msgs.push(`Shaam ki chai pee lo ${firstName} bhaiya! ☕ Fresh feel aayega!`);
+    msgs.push(`Shaam ho gyi ${firstName} ${h}! Thoda rest karo! 😊`);
+    msgs.push(`Shaam ki chai pee lo ${firstName} ${h}! ☕ Fresh feel aayega!`);
   } else {
-    msgs.push(`${firstName} bhaiya! Itni raat ko? Soja na! 🌙😴`);
+    msgs.push(`${firstName} ${h}! Itni raat ko? Soja na! 🌙😴`);
     msgs.push(`Aree ${firstName}! Raat ho gyi, kal subah jaldi uthna hai na? 🥺`);
     msgs.push(`Gudiya bhi so rhi thi, aapne jaga diya! 😴 Jaldi sona haan!`);
   }
 
   // ---- Class-related ----
   if (totalClasses >= 5) {
-    msgs.push(`Aaj to ${totalClasses} class hain ${firstName} bhaiya! 😵 But tension mat lo, ek ek karke nikal jayengi!`);
-    msgs.push(`${totalClasses} class! Bahut zyada hain aaj 😤 But aap strong ho bhaiya! 💪`);
+    msgs.push(`Aaj to ${totalClasses} class hain ${firstName} ${h}! 😵 But tension mat lo, ek ek karke nikal jayengi!`);
+    msgs.push(`${totalClasses} class! Bahut zyada hain aaj 😤 But aap strong ho ${h}! 💪`);
   } else if (totalClasses >= 3) {
-    msgs.push(`Aaj ${totalClasses} class hain, normal din hai ${firstName} bhaiya! 📚`);
+    msgs.push(`Aaj ${totalClasses} class hain, normal din hai ${firstName} ${h}! 📚`);
   } else if (totalClasses > 0) {
     msgs.push(`Aaj sirf ${totalClasses} class! Maza aayega aaj to! 😎`);
     msgs.push(`Kya baat hai! Sirf ${totalClasses} class, baaki time masti! 🎉`);
@@ -1223,19 +1240,19 @@ function buildGudiyaMessages() {
 
   if (nextCls) {
     if (nextCls.ongoing) {
-      msgs.push(`Abhi ${nextCls.subject} chal rhi hai! Dhyan se suno bhaiya! 📖`);
-      msgs.push(`${nextCls.subject} mein ho abhi? Focus karo ${firstName} bhaiya! 🎯`);
+      msgs.push(`Abhi ${nextCls.subject} chal rhi hai! Dhyan se suno ${h}! 📖`);
+      msgs.push(`${nextCls.subject} mein ho abhi? Focus karo ${firstName} ${h}! 🎯`);
     } else {
-      msgs.push(`Next class ${nextCls.subject} hai, tayyar ho jao bhaiya! 📚`);
+      msgs.push(`Next class ${nextCls.subject} hai, tayyar ho jao ${h}! 📚`);
       msgs.push(`${nextCls.subject} aane wala hai! Time: ${nextCls.time.split('-')[0].trim()} ⏰`);
     }
   } else if (hasTimetable() && !isWeekend) {
-    msgs.push(`Aaj ki sab class khatam ho gayi! 🎉 Ab maza karo bhaiya!`);
+    msgs.push(`Aaj ki sab class khatam ho gayi! 🎉 Ab maza karo ${h}!`);
     msgs.push(`No more class! Gudiya bhi khush hai! 🥳`);
   }
 
   if (isWeekend) {
-    msgs.push(`Aaj ${today} hai! Weekend mein enjoy karo ${firstName} bhaiya! 🎮`);
+    msgs.push(`Aaj ${today} hai! Weekend mein enjoy karo ${firstName} ${h}! 🎮`);
     msgs.push(`Weekend! No class! Party time! 🥳🎉`);
   }
 
@@ -1244,54 +1261,54 @@ function buildGudiyaMessages() {
     const firstItem = todayMess.items.split(',')[0].trim();
     const yummy = todayMess.items.toLowerCase().includes('paneer') || todayMess.items.toLowerCase().includes('chicken');
     msgs.push(`${todayMess.label} mein ${firstItem} hai aaj! ${yummy ? 'Yummyyy! 🤤' : '😋'}`);
-    msgs.push(`${firstName} bhaiya! ${todayMess.label} ka menu dekha? ${firstItem}! ${yummy ? 'Maza aayega! 🤤' : 'Achha hai! 👍'}`);
+    msgs.push(`${firstName} ${h}! ${todayMess.label} ka menu dekha? ${firstItem}! ${yummy ? 'Maza aayega! 🤤' : 'Achha hai! 👍'}`);
   }
 
   // ---- Budget ----
   if (monthly > 0) {
     if (pct >= 90) {
-      msgs.push(`Bhaiya budget ALMOST khatam! 😱 Sirf ₹${Math.abs(left)} bacha hai! Sambhal ke! 🥺`);
-      msgs.push(`Budget ka ${pct}% kharcha ho chuka! ${firstName} bhaiya dhyan do! 😬`);
+      msgs.push(`${h} budget ALMOST khatam! 😱 Sirf ₹${Math.abs(left)} bacha hai! Sambhal ke! 🥺`);
+      msgs.push(`Budget ka ${pct}% kharcha ho chuka! ${firstName} ${h} dhyan do! 😬`);
     } else if (pct >= 70) {
-      msgs.push(`Budget ka ${pct}% kharcha ho gaya hai! Thoda slow karo bhaiya! 😅`);
+      msgs.push(`Budget ka ${pct}% kharcha ho gaya hai! Thoda slow karo ${h}! 😅`);
     } else if (pct < 30 && spent > 0) {
-      msgs.push(`Budget ache se chal rha hai! ₹${left} bacha hai! Well done ${firstName} bhaiya! 💪`);
+      msgs.push(`Budget ache se chal rha hai! ₹${left} bacha hai! Well done ${firstName} ${h}! 💪`);
     } else if (pct >= 30 && pct < 70) {
-      msgs.push(`₹${left} bacha hai budget mein! Normal pace hai ${firstName} bhaiya! 👍`);
+      msgs.push(`₹${left} bacha hai budget mein! Normal pace hai ${firstName} ${h}! 👍`);
     }
   } else {
-    msgs.push(`Bhaiya monthly budget set nahi kiya! Budget page pe jao na! 💰`);
+    msgs.push(`${h} monthly budget set nahi kiya! Budget page pe jao na! 💰`);
   }
 
   // ---- Streak ----
   if (streak >= 10) {
-    msgs.push(`OMG! ${streak} din ka streak! 🔥🔥🔥 ${firstName} bhaiya aap to legend ho! 🏆`);
+    msgs.push(`OMG! ${streak} din ka streak! 🔥🔥🔥 ${firstName} ${h} aap to legend ho! 🏆`);
   } else if (streak >= 7) {
-    msgs.push(`Waah! ${streak} din ka streak! 🔥🔥 Champion bhaiya! 🏆`);
+    msgs.push(`Waah! ${streak} din ka streak! 🔥🔥 Champion ${h}! 🏆`);
   } else if (streak >= 3) {
-    msgs.push(`${streak} din ka streak! 🔥 Maza aa gaya! Keep going bhaiya!`);
+    msgs.push(`${streak} din ka streak! 🔥 Maza aa gaya! Keep going ${h}!`);
   } else if (streak === 1) {
     msgs.push(`Aaj pehla din hai! Kal bhi aana, streak banayenge! 🔥`);
   }
 
   // ---- Khata ----
   if (totalLena > 0) {
-    msgs.push(`Logon se ₹${totalLena.toLocaleString('en-IN')} lena hai! Yaad dila do unko bhaiya! 😤`);
+    msgs.push(`Logon se ₹${totalLena.toLocaleString('en-IN')} lena hai! Yaad dila do unko ${h}! 😤`);
   }
   if (totalDena > 0) {
-    msgs.push(`₹${totalDena.toLocaleString('en-IN')} dena hai logon ko! Bhool mat jaana bhaiya! 😊`);
+    msgs.push(`₹${totalDena.toLocaleString('en-IN')} dena hai logon ko! Bhool mat jaana ${h}! 😊`);
   }
 
   // ---- Random fun / motivational ----
-  msgs.push(`${firstName} bhaiya aap best ho! Main hamesha yahan hoon! 🥰`);
-  msgs.push(`Padhai important hai but health bhi! Paani pee lo bhaiya! 💧`);
+  msgs.push(`${firstName} ${h} aap best ho! Main hamesha yahan hoon! 🥰`);
+  msgs.push(`Padhai important hai but health bhi! Paani pee lo ${h}! 💧`);
   msgs.push(`Aaj kuch naya seekho! Har din better banna hai na! 📈`);
   msgs.push(`Main Gudiya hoon! Aapki chhoti helper! 👧 Tap karo aur suno!`);
-  msgs.push(`Hostel ka khana kha ke bore ho gaye? Weekend pe bahar khana bhaiya! 🍕`);
-  msgs.push(`Ek smile do ${firstName} bhaiya! 😊 Gudiya khush ho jayegi!`);
+  msgs.push(`Hostel ka khana kha ke bore ho gaye? Weekend pe bahar khana ${h}! 🍕`);
+  msgs.push(`Ek smile do ${firstName} ${h}! 😊 Gudiya khush ho jayegi!`);
   msgs.push(`Kya pata kal exam aa jaye? Thoda thoda padh lo daily! 📝`);
   msgs.push(`Friends ke saath time spend karo, college life ek baar aati hai! 🫂`);
-  msgs.push(`${firstName} bhaiya, aapka CampusKit app bahut achha hai! 😍`);
+  msgs.push(`${firstName} ${h}, aapka CampusKit app bahut achha hai! 😍`);
   msgs.push(`Agar koi tension hai to deep breath lo! Sab theek hoga! 🌈`);
 
   return msgs;

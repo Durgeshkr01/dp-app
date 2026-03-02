@@ -30,6 +30,14 @@
     <!-- Name Step -->
     <div id="name-step">
       <input type="text" id="input-user-name" class="name-input" placeholder="Your name..." maxlength="30" autocomplete="off" />
+      <div class="gender-select" id="gender-select">
+        <button class="gender-btn active" id="gender-male" onclick="selectGender('male')">
+          <i class="fa-solid fa-mars"></i> Male
+        </button>
+        <button class="gender-btn" id="gender-female" onclick="selectGender('female')">
+          <i class="fa-solid fa-venus"></i> Female
+        </button>
+      </div>
       <button class="name-continue-btn" onclick="submitName()">Continue <i class="fa-solid fa-arrow-right"></i></button>
     </div>
 
