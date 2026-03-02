@@ -1357,37 +1357,39 @@ function speakGudiya(text) {
 
   const utter = new SpeechSynthesisUtterance(clean);
   utter.lang = 'hi-IN';
-  utter.rate = 1.05;
-  utter.pitch = 1.8;   // Very high pitch = choti bachi feel
+  utter.rate = 0.92;    // Slightly slow = natural feel
+  utter.pitch = 1.35;   // Soft high = young girl, not robotic
   utter.volume = 1.0;
 
-  // Find best female Hindi voice
   const voices = window.speechSynthesis.getVoices();
   let picked = null;
 
-  // Priority 1: Google Hindi female (best quality)
-  picked = voices.find(v => /google.*hindi/i.test(v.name) && /female/i.test(v.name));
+  // BEST: Google Hindi voices (most natural, available on Android/Chrome)
+  picked = voices.find(v => /google/i.test(v.name) && v.lang.startsWith('hi'));
 
-  // Priority 2: Any Hindi voice with "female" or "woman" in name
-  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /female|woman|girl|lekha|swara|aditi|priya/i.test(v.name));
+  // Microsoft Online (Neural) voices — very natural sounding
+  if (!picked) picked = voices.find(v => /online|neural/i.test(v.name) && v.lang.startsWith('hi'));
 
-  // Priority 3: Google Hindi (usually female by default on Android/Chrome)
-  if (!picked) picked = voices.find(v => /google.*hindi|google.*hi-in/i.test(v.name));
+  // Microsoft Swara (decent Hindi female)
+  if (!picked) picked = voices.find(v => /swara|kalpana|neerja|sapna/i.test(v.name));
 
-  // Priority 4: Microsoft Hindi female voices
-  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /swara|kalpana|neerja/i.test(v.name));
+  // Any Hindi female
+  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /female|woman|girl/i.test(v.name));
 
-  // Priority 5: Any Hindi voice (use extra high pitch to compensate if male)
-  if (!picked) {
-    picked = voices.find(v => v.lang.startsWith('hi'));
-    if (picked) utter.pitch = 2.0; // Max pitch if unsure about gender
-  }
+  // Any Hindi voice
+  if (!picked) picked = voices.find(v => v.lang.startsWith('hi'));
 
-  // Priority 6: Any female voice in any language
-  if (!picked) {
-    picked = voices.find(v => /female|woman|girl|zira|hazel|susan|samantha/i.test(v.name));
-    if (picked) utter.pitch = 2.0;
-  }
+  // Google English India female (sounds natural in Hinglish)
+  if (!picked) picked = voices.find(v => /google/i.test(v.name) && /en.in/i.test(v.lang));
+
+  // Microsoft Neerja (en-IN female, good for Hinglish)
+  if (!picked) picked = voices.find(v => /neerja|sapna/i.test(v.name));
+
+  // Any en-IN female
+  if (!picked) picked = voices.find(v => v.lang === 'en-IN' && /female|woman/i.test(v.name));
+
+  // Fallback: Any female sounding voice
+  if (!picked) picked = voices.find(v => /zira|hazel|susan|samantha|karen|moira/i.test(v.name));
 
   if (picked) utter.voice = picked;
 
