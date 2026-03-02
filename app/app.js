@@ -1356,42 +1356,68 @@ function speakGudiya(text) {
   const clean = text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[●•✓✎⚡↑↓]/gu, '').replace(/\s+/g,' ').trim();
 
   const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang = 'hi-IN';
-  utter.rate = 0.92;    // Slightly slow = natural feel
-  utter.pitch = 1.35;   // Soft high = young girl, not robotic
+  utter.rate = 0.95;
+  utter.pitch = 1.55;
   utter.volume = 1.0;
 
   const voices = window.speechSynthesis.getVoices();
   let picked = null;
 
-  // BEST: Google Hindi voices (most natural, available on Android/Chrome)
+  // === BEST NATURAL FEMALE VOICES (priority order) ===
+
+  // 1. Google Hindi (Android/Chrome — most natural)
   picked = voices.find(v => /google/i.test(v.name) && v.lang.startsWith('hi'));
 
-  // Microsoft Online (Neural) voices — very natural sounding
-  if (!picked) picked = voices.find(v => /online|neural/i.test(v.name) && v.lang.startsWith('hi'));
+  // 2. Microsoft Online/Neural Hindi voices (Windows 11 — very natural)
+  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /online|neural/i.test(v.name));
 
-  // Microsoft Swara (decent Hindi female)
-  if (!picked) picked = voices.find(v => /swara|kalpana|neerja|sapna/i.test(v.name));
+  // 3. Microsoft Swara (Hindi female, Win10/11)
+  if (!picked) picked = voices.find(v => /swara/i.test(v.name));
 
-  // Any Hindi female
-  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /female|woman|girl/i.test(v.name));
-
-  // Any Hindi voice
+  // 4. Any Hindi voice
   if (!picked) picked = voices.find(v => v.lang.startsWith('hi'));
 
-  // Google English India female (sounds natural in Hinglish)
+  // 5. Microsoft Neerja (en-IN female — natural for Hinglish)
+  if (!picked) picked = voices.find(v => /neerja/i.test(v.name));
+
+  // 6. Google en-IN 
   if (!picked) picked = voices.find(v => /google/i.test(v.name) && /en.in/i.test(v.lang));
 
-  // Microsoft Neerja (en-IN female, good for Hinglish)
-  if (!picked) picked = voices.find(v => /neerja|sapna/i.test(v.name));
+  // 7. Zira (Windows default female — thin voice)
+  if (!picked) picked = voices.find(v => /zira/i.test(v.name));
 
-  // Any en-IN female
-  if (!picked) picked = voices.find(v => v.lang === 'en-IN' && /female|woman/i.test(v.name));
+  // 8. Hazel / Susan / Samantha
+  if (!picked) picked = voices.find(v => /hazel|susan|samantha|karen/i.test(v.name));
 
-  // Fallback: Any female sounding voice
-  if (!picked) picked = voices.find(v => /zira|hazel|susan|samantha|karen|moira/i.test(v.name));
+  // 9. Any female sounding
+  if (!picked) picked = voices.find(v => /female|woman/i.test(v.name));
 
-  if (picked) utter.voice = picked;
+  if (picked) {
+    utter.voice = picked;
+    // Adjust per voice type for best result
+    if (/zira|hazel|susan|samantha|karen/i.test(picked.name)) {
+      // English voices — slightly higher pitch, sounds more girly
+      utter.lang = 'hi-IN';
+      utter.pitch = 1.6;
+      utter.rate = 0.88;
+    } else if (/swara/i.test(picked.name)) {
+      // Swara is decent but needs tuning
+      utter.lang = 'hi-IN';
+      utter.pitch = 1.5;
+      utter.rate = 0.9;
+    } else if (/google/i.test(picked.name)) {
+      // Google voices are naturally good
+      utter.lang = 'hi-IN';
+      utter.pitch = 1.45;
+      utter.rate = 0.93;
+    } else {
+      utter.lang = 'hi-IN';
+      utter.pitch = 1.55;
+      utter.rate = 0.92;
+    }
+  } else {
+    utter.lang = 'hi-IN';
+  }
 
   // Auto-hide bubble when speech ends
   utter.onend = () => {
