@@ -1357,16 +1357,39 @@ function speakGudiya(text) {
 
   const utter = new SpeechSynthesisUtterance(clean);
   utter.lang = 'hi-IN';
-  utter.rate = 1.0;
-  utter.pitch = 1.5;   // High pitch = choti bachi feel
+  utter.rate = 1.05;
+  utter.pitch = 1.8;   // Very high pitch = choti bachi feel
   utter.volume = 1.0;
 
-  // Find best Hindi/female voice
+  // Find best female Hindi voice
   const voices = window.speechSynthesis.getVoices();
-  const hindiF = voices.find(v => v.lang.startsWith('hi') && /female|woman/i.test(v.name));
-  const hindi  = voices.find(v => v.lang.startsWith('hi'));
-  const anyF   = voices.find(v => /female|woman/i.test(v.name));
-  utter.voice = hindiF || hindi || anyF || null;
+  let picked = null;
+
+  // Priority 1: Google Hindi female (best quality)
+  picked = voices.find(v => /google.*hindi/i.test(v.name) && /female/i.test(v.name));
+
+  // Priority 2: Any Hindi voice with "female" or "woman" in name
+  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /female|woman|girl|lekha|swara|aditi|priya/i.test(v.name));
+
+  // Priority 3: Google Hindi (usually female by default on Android/Chrome)
+  if (!picked) picked = voices.find(v => /google.*hindi|google.*hi-in/i.test(v.name));
+
+  // Priority 4: Microsoft Hindi female voices
+  if (!picked) picked = voices.find(v => v.lang.startsWith('hi') && /swara|kalpana|neerja/i.test(v.name));
+
+  // Priority 5: Any Hindi voice (use extra high pitch to compensate if male)
+  if (!picked) {
+    picked = voices.find(v => v.lang.startsWith('hi'));
+    if (picked) utter.pitch = 2.0; // Max pitch if unsure about gender
+  }
+
+  // Priority 6: Any female voice in any language
+  if (!picked) {
+    picked = voices.find(v => /female|woman|girl|zira|hazel|susan|samantha/i.test(v.name));
+    if (picked) utter.pitch = 2.0;
+  }
+
+  if (picked) utter.voice = picked;
 
   // Auto-hide bubble when speech ends
   utter.onend = () => {
