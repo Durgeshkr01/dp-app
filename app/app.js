@@ -132,19 +132,29 @@ function extractSubjectRoom(raw) {
   let room = '';
   let subject = raw.trim();
 
-  // Pattern 1: Room in brackets — "Subject (C-205)" or "Subject (Lab-1)" or "Subject (G1)"
-  const bracketMatch = raw.match(/\(([^)]+)\)\s*$/);
-  if (bracketMatch) {
-    room = bracketMatch[1].trim();
-    subject = raw.replace(bracketMatch[0], '').trim();
+  // Pattern 1: Room code at end — "Subject C-205", "Subject C-127", "IOT C-133"
+  // Room = letter(s)-number(s) at the very end, e.g. C-205, C-127, C-133
+  const roomEndMatch = subject.match(/\s+([A-Z]{1,4}-\d{1,4}[A-Z]?)\s*$/i);
+  if (roomEndMatch) {
+    room = roomEndMatch[1].trim();
+    subject = subject.slice(0, subject.length - roomEndMatch[0].length).trim();
     return { subject, room };
   }
 
-  // Pattern 2: Room code after subject — "Subject C-205", "Subject Lab-1"
-  const roomMatch = raw.match(/\b([A-Z]{1,4}-?\d{1,4}[A-Z]?|\bLab[-\s]?\d+\b|\bGround\b|\b[A-Z]-\d+[A-Z]?\b)\s*$/i);
-  if (roomMatch) {
-    room = roomMatch[0].trim();
-    subject = raw.replace(roomMatch[0], '').trim().replace(/\s+/g, ' ');
+  // Pattern 2: Room in brackets at end — "Subject (C-205)"
+  const bracketMatch = subject.match(/\(([A-Z]{1,4}-?\d{1,4}[A-Z]?)\)\s*$/i);
+  if (bracketMatch) {
+    room = bracketMatch[1].trim();
+    subject = subject.replace(bracketMatch[0], '').trim();
+    return { subject, room };
+  }
+
+  // Pattern 3: Lab room — "Lab-1", "LAB-4" etc at end
+  const labMatch = subject.match(/\s+((?:CSE\s+)?Lab[-\s]?\d+)\s*$/i);
+  if (labMatch) {
+    room = labMatch[1].trim();
+    subject = subject.slice(0, subject.length - labMatch[0].length).trim();
+    return { subject, room };
   }
 
   return { subject, room };
