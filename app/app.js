@@ -26,14 +26,14 @@ function handleExcelUpload(event) {
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
       const parsed = parseSheetRows(rows);
-      if (!parsed) { showToast('Format sahi nahi lag raha! Check karo.'); return; }
+      if (!parsed) { showToast('Invalid format! Please check your file.'); return; }
       TIMETABLE = parsed;
       localStorage.setItem(TT_STORAGE_KEY, JSON.stringify(TIMETABLE));
-      showToast('Timetable successfully upload ho gaya! ✓');
+      showToast('Timetable uploaded successfully! ✓');
       renderTimetable();
       renderHomeSummary();
     } catch (err) {
-      showToast('File read karne mein error aaya!');
+      showToast('Error reading the file!');
     }
     event.target.value = ''; // reset so same file can be re-uploaded
   };
@@ -271,7 +271,7 @@ function renderDaySchedule(day) {
   const periods = TIMETABLE[day] || [];
 
   if (day === 'Sunday' || periods.length === 0) {
-    content.innerHTML = `<div class="no-class"><i class="fa-solid fa-umbrella-beach"></i><p>Aaj koi class nahi hai!<br/>Araam karo 😴</p></div>`;
+    content.innerHTML = `<div class="no-class"><i class="fa-solid fa-umbrella-beach"></i><p>No class today!<br/>Enjoy your day 😴</p></div>`;
     return;
   }
 
@@ -303,7 +303,7 @@ function renderDaySchedule(day) {
       <div class="period-info">
         <div class="period-subject">${p.subject}</div>
         ${p.teacher ? `<div class="period-teacher">${p.teacher}</div>` : ''}
-        ${isCurrent ? '<span class="period-now-badge">● Abhi ho rahi hai</span>' : ''}
+        ${isCurrent ? '<span class="period-now-badge">● Ongoing</span>' : ''}
       </div>
       ${p.room ? `<div class="period-room">${p.room}</div>` : ''}
     </div>`;
@@ -312,6 +312,12 @@ function renderDaySchedule(day) {
 
 // ==================== HOME SUMMARY ====================
 function renderHomeSummary() {
+  // Update greeting with stored name
+  const greetEl = document.getElementById('welcome-greeting');
+  if (greetEl) {
+    const name = getUserName();
+    greetEl.textContent = name ? `Hello, ${name}! 👋` : 'Hello! 👋';
+  }
   const today = getTodayName();
   const todayPeriods = hasTimetable()
     ? (TIMETABLE[today] || []).filter(p => !['Lunch','Library','BASKET-II','Mentor'].includes(p.subject))
@@ -329,23 +335,23 @@ function renderHomeSummary() {
   summaryEl.innerHTML = `
     <div class="summary-row">
       <div class="summary-card green">
-        <div class="sc-label">Lena Baki</div>
+        <div class="sc-label">To Receive</div>
         <div class="sc-value">₹${totalLena.toLocaleString('en-IN')}</div>
       </div>
       <div class="summary-card red">
-        <div class="sc-label">Dena Baki</div>
+        <div class="sc-label">To Pay</div>
         <div class="sc-value">₹${totalDena.toLocaleString('en-IN')}</div>
       </div>
     </div>
     <div class="summary-row">
       <div class="summary-card today-class">
-        <div class="today-label">Aaj ki classes (${today})</div>
+        <div class="today-label">Today's Classes (${today})</div>
         <div class="today-subjects">
           ${!hasTimetable()
-            ? '<span style="color:var(--primary);font-size:13px;font-weight:600;">📂 Timetable upload karo — Timetable tab mein jao</span>'
+            ? '<span style="color:var(--primary);font-size:13px;font-weight:600;">📂 Upload timetable — Go to Timetable tab</span>'
             : subjects.length > 0
               ? subjects.map(s => `<span class="subject-chip" style="background:${subjectColor(s)}20;color:${subjectColor(s)}">${s}</span>`).join('')
-              : '<span style="color:var(--text-muted);font-size:13px;">Koi class nahi 🎉</span>'
+              : '<span style="color:var(--text-muted);font-size:13px;">No classes today 🎉</span>'
           }
         </div>
       </div>
@@ -379,11 +385,11 @@ function renderKhataList() {
   });
   document.getElementById('khata-summary-bar').innerHTML = `
     <div class="ksb-card lena">
-      <div class="ksb-label">Mujhe Milega</div>
+      <div class="ksb-label">I Will Receive</div>
       <div class="ksb-value">₹${totalLena.toLocaleString('en-IN')}</div>
     </div>
     <div class="ksb-card dena">
-      <div class="ksb-label">Mujhe Dena Hai</div>
+      <div class="ksb-label">I Need to Pay</div>
       <div class="ksb-value">₹${totalDena.toLocaleString('en-IN')}</div>
     </div>
   `;
@@ -403,10 +409,10 @@ function renderKhataList() {
     const initials = person.naam.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
     const color = nameColor(person.naam);
     const lastTxn = person.transactions[person.transactions.length - 1];
-    const note = lastTxn ? (lastTxn.note || formatDate(lastTxn.date)) : 'Koi entry nahi';
+    const note = lastTxn ? (lastTxn.note || formatDate(lastTxn.date)) : 'No entry';
 
     let amountClass = net > 0 ? 'lena' : net < 0 ? 'dena' : 'settled';
-    let typeLabel = net > 0 ? 'Lena Hai' : net < 0 ? 'Dena Hai' : 'Settled';
+    let typeLabel = net > 0 ? 'To Receive' : net < 0 ? 'To Pay' : 'Settled';
     let labelClass = net > 0 ? 'lena-label' : net < 0 ? 'dena-label' : 'settled-label';
 
     return `<div class="khata-item" onclick="openDetail('${person.id}')">
@@ -427,7 +433,7 @@ function renderKhataList() {
 // ---- Add New Person ----
 function openAddKhata() {
   editingPersonId = null;
-  document.getElementById('modal-title').textContent = 'Naya Khata';
+  document.getElementById('modal-title').textContent = 'New Account';
   document.getElementById('input-naam').value = '';
   document.getElementById('input-phone').value = '';
   document.getElementById('input-amount').value = '';
@@ -450,9 +456,9 @@ function saveKhata() {
   const note = document.getElementById('input-note').value.trim();
   const date = document.getElementById('input-date').value;
 
-  if (!naam) { showToast('Naam likhna zaroori hai!'); return; }
-  if (!amount || amount <= 0) { showToast('Amount sahi likho!'); return; }
-  if (phone && phone.length !== 10) { showToast('Phone number 10 digit ka hona chahiye!'); return; }
+  if (!naam) { showToast('Name is required!'); return; }
+  if (!amount || amount <= 0) { showToast('Please enter a valid amount!'); return; }
+  if (phone && phone.length !== 10) { showToast('Phone number must be 10 digits!'); return; }
 
   const txn = { id: Date.now().toString(), type: currentType, amount, note, date };
 
@@ -461,10 +467,10 @@ function saveKhata() {
   if (existing) {
     existing.transactions.push(txn);
     if (phone) existing.phone = phone; // update phone if provided
-    showToast(`${naam} ki entry update ho gayi!`);
+    showToast(`${naam}'s entry updated!`);
   } else {
     khataData.push({ id: Date.now().toString(), naam, phone, transactions: [txn] });
-    showToast(`${naam} ka khata khul gaya!`);
+    showToast(`${naam}'s account created!`);
   }
 
   saveKhataToStorage();
@@ -483,8 +489,8 @@ function openDetail(personId) {
   const initials = person.naam.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
 
   let netClass = net > 0 ? 'lena' : net < 0 ? 'dena' : 'settled';
-  let netText = net > 0 ? `₹${net.toLocaleString('en-IN')} lena hai` :
-                net < 0 ? `₹${Math.abs(net).toLocaleString('en-IN')} dena hai` : 'Settled ✓';
+  let netText = net > 0 ? `₹${net.toLocaleString('en-IN')} to receive` :
+                net < 0 ? `₹${Math.abs(net).toLocaleString('en-IN')} to pay` : 'Settled ✓';
 
   document.getElementById('detail-header').innerHTML = `
     <div class="detail-avatar" style="background:${color}">${initials}</div>
@@ -501,14 +507,14 @@ function openDetail(personId) {
 
   const txns = [...person.transactions].reverse();
   if (txns.length === 0) {
-    document.getElementById('detail-transactions').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">Koi transaction nahi</p>';
+    document.getElementById('detail-transactions').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No transactions yet</p>';
   } else {
     document.getElementById('detail-transactions').innerHTML = txns.map((t, i) => `
       <div class="txn-row">
         <div class="txn-left">
           <div class="txn-note">${t.note || '—'}</div>
           <div class="txn-date">${formatDate(t.date)}</div>
-          <span class="txn-type-badge ${t.type}">${t.type === 'lena' ? 'Lena Hai' : 'Dena Hai'}</span>
+          <span class="txn-type-badge ${t.type}">${t.type === 'lena' ? 'To Receive' : 'To Pay'}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="txn-amount ${t.type}">${t.type === 'lena' ? '+' : '-'}₹${t.amount.toLocaleString('en-IN')}</div>
@@ -535,12 +541,12 @@ function deletePerson() {
   if (!currentPersonId) return;
   const person = khataData.find(p => p.id === currentPersonId);
   if (!person) return;
-  if (!confirm(`"${person.naam}" ka poora khata delete karna hai?`)) return;
+  if (!confirm(`Delete entire account of "${person.naam}"?`)) return;
   khataData = khataData.filter(p => p.id !== currentPersonId);
   saveKhataToStorage();
   renderKhataList();
   closeDetail();
-  showToast('Khata delete ho gaya!');
+  showToast('Account deleted!');
 }
 
 // ---- WhatsApp Reminder ----
@@ -551,11 +557,11 @@ function sendWhatsAppReminder() {
   const net = getNetAmount(person);
   let msg = '';
   if (net > 0) {
-    msg = `Bhai ${person.naam}, tumse ₹${net.toLocaleString('en-IN')} lene hain mere. Jab free ho toh bata dena. 🙏`;
+    msg = `Hi ${person.naam}, you owe me ₹${net.toLocaleString('en-IN')}. Let me know when you're free. 🙏`;
   } else if (net < 0) {
-    msg = `Bhai ${person.naam}, mujhe tumhe ₹${Math.abs(net).toLocaleString('en-IN')} dene hain. Remind kar raha hoon. 🙏`;
+    msg = `Hi ${person.naam}, I owe you ₹${Math.abs(net).toLocaleString('en-IN')}. Just reminding myself. 🙏`;
   } else {
-    msg = `Bhai ${person.naam}, hamara hisaab settle ho gaya hai. Thanks! ✅`;
+    msg = `Hi ${person.naam}, our dues are all settled. Thanks! ✅`;
   }
 
   const url = `https://wa.me/91${person.phone}?text=${encodeURIComponent(msg)}`;
@@ -584,7 +590,7 @@ function saveTransaction() {
   const note = document.getElementById('txn-note').value.trim();
   const date = document.getElementById('txn-date').value;
 
-  if (!amount || amount <= 0) { showToast('Amount sahi likho!'); return; }
+  if (!amount || amount <= 0) { showToast('Please enter a valid amount!'); return; }
 
   const person = khataData.find(p => p.id === currentPersonId);
   if (!person) return;
@@ -594,7 +600,7 @@ function saveTransaction() {
   renderKhataList();
   closeTxnModal();
   openDetail(currentPersonId);
-  showToast('Entry add ho gayi!');
+  showToast('Entry added!');
 }
 
 // ==================== MODAL HELPERS ====================
@@ -624,7 +630,7 @@ function getTodayDateStr() {
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function showToast(msg) {
@@ -642,17 +648,44 @@ function showToast(msg) {
 // ==================== AUTH / LOGIN ====================
 const STORAGE_PIN   = 'dp_pin';
 const STORAGE_SESS  = 'dp_session';
+const STORAGE_NAME  = 'dp_username';
 
 let pinBuffer = '';
-let pinStep = 'setup';   // 'setup' | 'confirm' | 'login'
+let pinStep = 'setup';   // 'name' | 'setup' | 'confirm' | 'login'
 let pinFirst = '';       // stores first entry during setup confirm
 
+function showPinStep() {
+  document.getElementById('name-step').style.display = 'none';
+  const ps = document.getElementById('pin-step');
+  ps.style.display = 'flex';
+  ps.style.flexDirection = 'column';
+  ps.style.alignItems = 'center';
+}
+
+function showNameStep() {
+  document.getElementById('name-step').style.display = 'flex';
+  document.getElementById('pin-step').style.display = 'none';
+}
+
+function submitName() {
+  const val = document.getElementById('input-user-name').value.trim();
+  if (!val) { document.getElementById('input-user-name').focus(); return; }
+  localStorage.setItem(STORAGE_NAME, val);
+  showPinStep();
+  pinStep = 'setup';
+  setLoginUI('Set Your PIN', 'Create a 4-digit PIN to secure your app');
+}
+
+function getUserName() {
+  return localStorage.getItem(STORAGE_NAME) || '';
+}
+
 function initAuth() {
-  const hasPin = localStorage.getItem(STORAGE_PIN);
+  const hasPin  = localStorage.getItem(STORAGE_PIN);
+  const hasName = localStorage.getItem(STORAGE_NAME);
   const hasSession = localStorage.getItem(STORAGE_SESS) === 'true';
 
   if (hasPin && hasSession) {
-    // Already logged in — go straight to app
     hidLoginShowApp();
     return;
   }
@@ -660,13 +693,30 @@ function initAuth() {
   // Show login screen
   document.getElementById('login-screen').style.display = 'flex';
 
-  if (!hasPin) {
+  if (!hasName) {
+    // Very first time — ask for name
+    pinStep = 'name';
+    showNameStep();
+    setLoginUITitleOnly('Welcome! 👋', 'Tell us your name to get started');
+    // Allow Enter key on name input
+    document.getElementById('input-user-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitName();
+    });
+  } else if (!hasPin) {
     pinStep = 'setup';
-    setLoginUI('Apna PIN Set Karo', 'Pehli baar hai — naya 4-digit PIN banao');
+    showPinStep();
+    setLoginUI('Set Your PIN', 'Create a 4-digit PIN to secure your app');
   } else {
     pinStep = 'login';
-    setLoginUI('Welcome Back! 👋', 'PIN daalo aur app open karo');
+    showPinStep();
+    const name = getUserName();
+    setLoginUI(`Welcome back, ${name}! 👋`, 'Enter your PIN to open the app');
   }
+}
+
+function setLoginUITitleOnly(title, sub) {
+  document.getElementById('login-title').textContent = title;
+  document.getElementById('login-sub').textContent   = sub;
 }
 
 function hidLoginShowApp() {
@@ -718,19 +768,19 @@ function handlePinComplete() {
   if (pinStep === 'setup') {
     pinFirst = pinBuffer;
     pinStep = 'confirm';
-    setLoginUI('PIN Dobara Daalo', 'Confirm karne ke liye same PIN daalo');
+    setLoginUI('Confirm Your PIN', 'Enter the same PIN again to confirm');
   }
   else if (pinStep === 'confirm') {
     if (pinBuffer === pinFirst) {
       localStorage.setItem(STORAGE_PIN, pinFirst);
       localStorage.setItem(STORAGE_SESS, 'true');
-      showPinSuccess('PIN set ho gaya! ✓');
+      showPinSuccess('PIN set successfully! ✓');
       setTimeout(() => hidLoginShowApp(), 700);
     } else {
-      showPinError('PIN match nahi hua — dobara try karo');
+      showPinError('PIN did not match — please try again');
       pinStep = 'setup';
       pinFirst = '';
-      setTimeout(() => setLoginUI('Apna PIN Set Karo', 'Pehli baar hai — naya 4-digit PIN banao'), 900);
+      setTimeout(() => setLoginUI('Set Your PIN', 'Create a 4-digit PIN to secure your app'), 900);
     }
   }
   else if (pinStep === 'login') {
@@ -740,7 +790,7 @@ function handlePinComplete() {
       showPinSuccess('✓');
       setTimeout(() => hidLoginShowApp(), 400);
     } else {
-      showPinError('Galat PIN — phir try karo');
+      showPinError('Wrong PIN — please try again');
       shakeDots();
       pinBuffer = '';
       updateDots();
@@ -772,7 +822,7 @@ function shakeDots() {
 }
 
 function doLogout() {
-  if (!confirm('Logout karna hai?')) return;
+  if (!confirm('Are you sure you want to logout?')) return;
   localStorage.removeItem(STORAGE_SESS);
   // Reset and reload
   location.reload();
