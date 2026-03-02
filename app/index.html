@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#6C63FF" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>DP</title>
+  <title>CampusKit</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="favicon.png" type="image/png" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -22,7 +22,7 @@
     <div class="login-bg-circle c2"></div>
 
     <div class="login-logo">
-      <img src="icon-192.png" alt="DP" />
+      <img src="icon-192.png" alt="CampusKit" />
     </div>
     <div class="login-title" id="login-title">Welcome!</div>
     <div class="login-sub" id="login-sub">Enter your name to get started</div>
@@ -67,7 +67,7 @@
   <!-- ========== SPLASH SCREEN ========== -->
   <div id="splash">
     <div class="splash-icon"><img src="icon-192.png" alt="logo" style="width:90px;height:90px;border-radius:22px;box-shadow:0 8px 32px rgba(0,0,0,0.25);" /></div>
-    <h1>DP</h1>
+    <h1>CampusKit</h1>
     <p>Loading...</p>
   </div>
 
@@ -76,7 +76,7 @@
 
     <!-- TOP HEADER -->
     <header class="top-header">
-      <span id="page-title">DP</span>
+      <span id="page-title">CampusKit</span>
       <div style="display:flex;gap:8px;align-items:center;">
         <div class="header-right" id="khata-header-btn" style="display:none;">
           <button class="icon-btn" onclick="openAddKhata()"><i class="fa-solid fa-plus"></i></button>
@@ -93,8 +93,9 @@
     <div id="page-home" class="page active">
       <div class="home-welcome">
         <div class="welcome-avatar"><i class="fa-solid fa-user-graduate"></i></div>
+        <div id="streak-badge"></div>
         <h2 id="welcome-greeting">Hello! 👋</h2>
-        <p>Choose a section</p>
+        <p>Your campus companion</p>
       </div>
       <div class="home-cards">
         <div class="home-card timetable-card" onclick="showPage('timetable')">
@@ -102,6 +103,22 @@
           <div class="card-info">
             <h3>Class Timetable</h3>
             <p>View your class schedule</p>
+          </div>
+          <i class="fa-solid fa-chevron-right card-arrow"></i>
+        </div>
+        <div class="home-card mess-card" onclick="showPage('mess')">
+          <div class="card-icon"><i class="fa-solid fa-bowl-food"></i></div>
+          <div class="card-info">
+            <h3>Mess Menu</h3>
+            <p>Today's North &amp; South menu</p>
+          </div>
+          <i class="fa-solid fa-chevron-right card-arrow"></i>
+        </div>
+        <div class="home-card budget-card" onclick="showPage('budget')">
+          <div class="card-icon"><i class="fa-solid fa-wallet"></i></div>
+          <div class="card-info">
+            <h3>Pocket Money</h3>
+            <p>Track monthly expenses</p>
           </div>
           <i class="fa-solid fa-chevron-right card-arrow"></i>
         </div>
@@ -145,6 +162,28 @@
       </div>
     </div>
 
+    <!-- ========== BUDGET PAGE ========== -->
+    <div id="page-budget" class="page">
+      <div id="budget-page-content"></div>
+    </div>
+
+    <!-- ========== MESS MENU PAGE ========== -->
+    <div id="page-mess" class="page">
+      <!-- Mess Selector -->
+      <div class="mess-selector">
+        <button id="mess-north-btn" class="mess-tab active" onclick="switchMess('north')">
+          <i class="fa-solid fa-utensils"></i> North Mess
+        </button>
+        <button id="mess-south-btn" class="mess-tab" onclick="switchMess('south')">
+          <i class="fa-solid fa-utensils"></i> South Mess
+        </button>
+      </div>
+      <!-- Day Tabs -->
+      <div class="day-tabs" id="mess-day-tabs"></div>
+      <!-- Content -->
+      <div id="mess-content" class="mess-content"></div>
+    </div>
+
     <!-- ========== KHATA BOOK PAGE ========== -->
     <div id="page-khata" class="page">
       <div class="khata-summary-bar" id="khata-summary-bar">
@@ -173,11 +212,29 @@
         <i class="fa-solid fa-calendar-days"></i>
         <span>Timetable</span>
       </button>
+      <button class="nav-btn" id="nav-mess" onclick="showPage('mess')">
+        <i class="fa-solid fa-bowl-food"></i>
+        <span>Mess</span>
+      </button>
+      <button class="nav-btn" id="nav-budget" onclick="showPage('budget')">
+        <i class="fa-solid fa-wallet"></i>
+        <span>Budget</span>
+      </button>
       <button class="nav-btn" id="nav-khata" onclick="showPage('khata')">
         <i class="fa-solid fa-book-open"></i>
         <span>Khata</span>
       </button>
     </nav>
+
+    <!-- GUDIYA 👧 FLOATING MASCOT -->
+    <div id="gudiya-bubble" class="gudiya-bubble hidden">
+      <div class="gudiya-bubble-inner">
+        <span id="gudiya-text"></span>
+        <button class="gudiya-close" onclick="hideGudiyaBubble()">✕</button>
+      </div>
+      <div class="gudiya-bubble-arrow"></div>
+    </div>
+    <button class="gudiya-fab" id="gudiya-fab" onclick="toggleGudiyaBubble()" title="Gudiya 👧">👧</button>
   </div>
 
   <!-- ========== ADD KHATA MODAL ========== -->
@@ -277,5 +334,49 @@
   </div>
 
   <script src="app.js"></script>
+
+  <!-- ========== SET BUDGET MODAL ========== -->
+  <div id="budget-set-overlay" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h3>Set Monthly Budget</h3>
+      <div class="form-group">
+        <label>Budget Amount <span class="req">*</span></label>
+        <input type="number" id="input-budget-amount" placeholder="E.g. 5000" min="0" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="document.getElementById('budget-set-overlay').classList.add('hidden')">Cancel</button>
+        <button class="btn-save" onclick="saveMonthlyBudget()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== ADD EXPENSE MODAL ========== -->
+  <div id="expense-add-overlay" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h3>Add Expense</h3>
+      <div class="form-group">
+        <label>Amount <span class="req">*</span></label>
+        <input type="number" id="input-exp-amount" placeholder="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <div id="exp-cat-selector" class="exp-cat-selector"></div>
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="input-exp-note" placeholder="Kisliye kharch kiya..." />
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="input-exp-date" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="document.getElementById('expense-add-overlay').classList.add('hidden')">Cancel</button>
+        <button class="btn-save" onclick="saveExpense()">Add</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

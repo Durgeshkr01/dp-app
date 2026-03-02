@@ -5,7 +5,7 @@
 // ==================== TIMETABLE DATA (Dynamic) ====================
 const DAYS      = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const DAY_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const TT_STORAGE_KEY = 'dp_timetable';
+const TT_STORAGE_KEY = 'campuskit_timetable';
 
 // Load timetable from localStorage (or empty)
 let TIMETABLE = JSON.parse(localStorage.getItem(TT_STORAGE_KEY) || 'null') || {};
@@ -169,14 +169,14 @@ function nameColor(name) {
 
 // ==================== KHATA BOOK DATA ====================
 // Structure: [{ id, naam, transactions: [{id, type:'lena'|'dena', amount, note, date}] }]
-let khataData = JSON.parse(localStorage.getItem('khataData') || '[]');
+let khataData = JSON.parse(localStorage.getItem('campuskit_khata') || '[]');
 let currentType = 'lena';
 let currentTxnType = 'lena';
 let editingPersonId = null;  // for detail view
 let currentPersonId = null;  // for transaction modal
 
 function saveKhataToStorage() {
-  localStorage.setItem('khataData', JSON.stringify(khataData));
+  localStorage.setItem('campuskit_khata', JSON.stringify(khataData));
 }
 
 // ==================== NAVIGATION ====================
@@ -189,8 +189,8 @@ function showPage(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-' + page).classList.add('active');
 
-  const titles = { home: 'DP', timetable: 'Class Timetable', khata: 'Khata Book' };
-  document.getElementById('page-title').textContent = titles[page];
+  const titles = { home: 'CampusKit', timetable: 'Class Timetable', khata: 'Khata Book', mess: 'Mess Menu', budget: 'Pocket Money' };
+  document.getElementById('page-title').textContent = titles[page] || 'CampusKit';
 
   const khataHeaderBtn = document.getElementById('khata-header-btn');
   khataHeaderBtn.style.display = page === 'khata' ? 'flex' : 'none';
@@ -203,6 +203,8 @@ function showPage(page) {
   if (page === 'timetable') renderTimetable();
   if (page === 'khata') renderKhataList();
   if (page === 'home') renderHomeSummary();
+  if (page === 'mess') renderMessMenu();
+  if (page === 'budget') renderBudgetPage();
 }
 
 // ==================== TIMETABLE ====================
@@ -311,50 +313,105 @@ function renderDaySchedule(day) {
 }
 
 // ==================== HOME SUMMARY ====================
-function renderHomeSummary() {
-  // Update greeting with stored name
-  const greetEl = document.getElementById('welcome-greeting');
-  if (greetEl) {
-    const name = getUserName();
-    greetEl.textContent = name ? `Hello, ${name}! 👋` : 'Hello! 👋';
+function getNextClass(day) {
+  if (!hasTimetable()) return null;
+  const periods = (TIMETABLE[day] || []).filter(p => !['Lunch','Library','BASKET-II','Mentor'].includes(p.subject));
+  const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+  for (let p of periods) {
+    if (!p.time.includes('-')) continue;
+    const [s, e] = p.time.split('-').map(x => parseTime(x.trim()));
+    if (nowMins < e) return { ...p, ongoing: nowMins >= s };
   }
-  const today = getTodayName();
-  const todayPeriods = hasTimetable()
-    ? (TIMETABLE[today] || []).filter(p => !['Lunch','Library','BASKET-II','Mentor'].includes(p.subject))
-    : [];
-  const subjects = [...new Set(todayPeriods.map(p => p.subject))];
+  return null;
+}
 
+function getTodayMess() {
+  const mess  = getMessChoice();
+  const day   = getTodayName();
+  const meal  = getCurrentMealTime();
+  if (!meal) return null;
+  const items = MESS_MENU[mess][day][meal];
+  return { meal, items, icon: MEAL_ICONS[meal], label: MEAL_LABELS[meal], mess };
+}
+
+function renderHomeSummary() {
+  const greetEl = document.getElementById('welcome-greeting');
+  const streakEl = document.getElementById('streak-badge');
+  const name = getUserName();
+  if (greetEl) greetEl.textContent = name ? `Hello, ${name}! 👋` : 'Hello! 👋';
+  const streak = getStreak();
+  if (streakEl) {
+    streakEl.innerHTML = streak > 0
+      ? `<span class="streak-badge">🔥 ${streak} day${streak>1?'s':''}</span>` : '';
+  }
+
+  const today    = getTodayName();
+  const nextCls  = getNextClass(today);
+  const todayMess= getTodayMess();
+  const spent    = getTotalSpent();
+  const left     = budgetData.monthly - spent;
   let totalLena = 0, totalDena = 0;
-  khataData.forEach(person => {
-    let net = getNetAmount(person);
-    if (net > 0) totalLena += net;
-    else if (net < 0) totalDena += Math.abs(net);
+  khataData.forEach(p => {
+    const net = getNetAmount(p);
+    if (net > 0) totalLena += net; else if (net < 0) totalDena += Math.abs(net);
   });
 
   const summaryEl = document.getElementById('home-summary');
   summaryEl.innerHTML = `
-    <div class="summary-row">
-      <div class="summary-card green">
-        <div class="sc-label">To Receive</div>
-        <div class="sc-value">₹${totalLena.toLocaleString('en-IN')}</div>
-      </div>
-      <div class="summary-card red">
-        <div class="sc-label">To Pay</div>
-        <div class="sc-value">₹${totalDena.toLocaleString('en-IN')}</div>
-      </div>
-    </div>
-    <div class="summary-row">
-      <div class="summary-card today-class">
-        <div class="today-label">Today's Classes (${today})</div>
-        <div class="today-subjects">
-          ${!hasTimetable()
-            ? '<span style="color:var(--primary);font-size:13px;font-weight:600;">📂 Upload timetable — Go to Timetable tab</span>'
-            : subjects.length > 0
-              ? subjects.map(s => `<span class="subject-chip" style="background:${subjectColor(s)}20;color:${subjectColor(s)}">${s}</span>`).join('')
-              : '<span style="color:var(--text-muted);font-size:13px;">No classes today 🎉</span>'
+
+    <!-- Aaj Ka Din glance -->
+    <div class="aajkadin-header">⚡ Aaj Ka Din</div>
+    <div class="aajkadin-grid">
+
+      <!-- Next Class -->
+      <div class="akd-card class-card" onclick="showPage('timetable')">
+        <div class="akd-icon">📚</div>
+        <div class="akd-info">
+          <div class="akd-label">Next Class</div>
+          ${nextCls
+            ? `<div class="akd-value">${nextCls.subject}</div>
+               <div class="akd-sub">${nextCls.ongoing ? '🟢 Ongoing' : nextCls.time.split('-')[0].trim()}</div>`
+            : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">No more classes 🎉</div>`
           }
         </div>
       </div>
+
+      <!-- Mess Today -->
+      <div class="akd-card mess-card-home" onclick="showPage('mess')">
+        <div class="akd-icon">${todayMess ? todayMess.icon : '🍽️'}</div>
+        <div class="akd-info">
+          <div class="akd-label">${todayMess ? todayMess.label : 'Mess Menu'}</div>
+          ${todayMess
+            ? `<div class="akd-value" style="font-size:12px;line-height:1.4;">${todayMess.items.split(',').slice(0,2).join(', ')}&hellip;</div>
+               <div class="akd-sub">${todayMess.mess === 'north' ? '🏠 North' : '🏠 South'}</div>`
+            : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">Tap to check menu</div>`
+          }
+        </div>
+      </div>
+
+      <!-- Budget -->
+      <div class="akd-card budget-card-home" onclick="showPage('budget')">
+        <div class="akd-icon">💰</div>
+        <div class="akd-info">
+          <div class="akd-label">Pocket Money</div>
+          ${budgetData.monthly > 0
+            ? `<div class="akd-value ${left<0?'danger-text':''}">₹${Math.abs(left).toLocaleString('en-IN')} ${left<0?'over':'left'}</div>
+               <div class="akd-sub">Spent ₹${spent.toLocaleString('en-IN')}</div>`
+            : `<div class="akd-value" style="color:var(--primary);font-size:12px;">+ Set monthly budget</div>`
+          }
+        </div>
+      </div>
+
+      <!-- Khata -->
+      <div class="akd-card khata-card-home" onclick="showPage('khata')">
+        <div class="akd-icon">📒</div>
+        <div class="akd-info">
+          <div class="akd-label">Khata</div>
+          <div class="akd-value" style="color:#22C55E;font-size:13px;">↓ ₹${totalLena.toLocaleString('en-IN')}</div>
+          <div class="akd-sub" style="color:#EF4444;">↑ ₹${totalDena.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+
     </div>
   `;
 }
@@ -646,9 +703,9 @@ function showToast(msg) {
 }
 
 // ==================== AUTH / LOGIN ====================
-const STORAGE_PIN   = 'dp_pin';
-const STORAGE_SESS  = 'dp_session';
-const STORAGE_NAME  = 'dp_username';
+const STORAGE_PIN   = 'campuskit_pin';
+const STORAGE_SESS  = 'campuskit_session';
+const STORAGE_NAME  = 'campuskit_username';
 
 let pinBuffer = '';
 let pinStep = 'setup';   // 'name' | 'setup' | 'confirm' | 'login'
@@ -728,6 +785,7 @@ function hidLoginShowApp() {
       document.getElementById('splash').style.display = 'none';
       document.getElementById('main-app').classList.remove('hidden');
       showPage('home');
+      initGudiya(); // Start Gudiya mascot
     }, 500);
   }, 800);
 }
@@ -828,9 +886,512 @@ function doLogout() {
   location.reload();
 }
 
+// ==================== DAILY STREAK ====================
+const STREAK_KEY      = 'campuskit_streak';
+const STREAK_DATE_KEY = 'campuskit_streak_date';
+
+function updateStreak() {
+  const today = new Date().toISOString().split('T')[0];
+  const lastDate = localStorage.getItem(STREAK_DATE_KEY);
+  let streak = parseInt(localStorage.getItem(STREAK_KEY) || '0');
+  if (!lastDate) {
+    streak = 1;
+  } else if (lastDate === today) {
+    return streak; // already counted today
+  } else {
+    const prev = new Date(); prev.setDate(prev.getDate() - 1);
+    const yStr = prev.toISOString().split('T')[0];
+    streak = (lastDate === yStr) ? streak + 1 : 1;
+  }
+  localStorage.setItem(STREAK_KEY, streak);
+  localStorage.setItem(STREAK_DATE_KEY, today);
+  return streak;
+}
+function getStreak() { return parseInt(localStorage.getItem(STREAK_KEY) || '0'); }
+
+// ==================== POCKET MONEY / BUDGET ====================
+const BUDGET_KEY = 'campuskit_budget';
+let budgetData = JSON.parse(localStorage.getItem(BUDGET_KEY) || 'null') || { monthly: 0, expenses: [] };
+
+function saveBudget() { localStorage.setItem(BUDGET_KEY, JSON.stringify(budgetData)); }
+
+function getCurrentMonthExpenses() {
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  return budgetData.expenses.filter(e => e.date && e.date.startsWith(ym));
+}
+function getTotalSpent() {
+  return getCurrentMonthExpenses().reduce((s, e) => s + e.amount, 0);
+}
+
+const BUDGET_CATS = ['🍔 Food', '🚌 Travel', '🛍️ Shopping', '📚 Study', '💊 Health', '🎮 Fun', '📦 Other'];
+let budgetCatFilter = 'all';
+
+function renderBudgetPage() {
+  const monthly = budgetData.monthly;
+  const spent   = getTotalSpent();
+  const left    = monthly - spent;
+  const pct     = monthly > 0 ? Math.min(100, Math.round((spent / monthly) * 100)) : 0;
+  const danger  = pct >= 90;
+  const warn    = pct >= 70;
+  const barColor = danger ? '#EF4444' : warn ? '#F59E0B' : '#22C55E';
+
+  document.getElementById('budget-page-content').innerHTML = `
+    <!-- Setup / Summary -->
+    <div class="budget-summary-card">
+      <div class="budget-top-row">
+        <div>
+          <div class="budget-month-label">${new Date().toLocaleString('en-IN',{month:'long',year:'numeric'})}</div>
+          <div class="budget-set-row">
+            <span class="budget-set-label">Monthly Budget:</span>
+            <button class="budget-edit-btn" onclick="openSetBudget()">
+              ${monthly > 0 ? `₹${monthly.toLocaleString('en-IN')} ✎` : '+ Set Budget'}
+            </button>
+          </div>
+        </div>
+        <div class="budget-left-badge ${danger ? 'danger' : warn ? 'warn' : 'safe'}">
+          <div class="blb-amount">₹${Math.abs(left).toLocaleString('en-IN')}</div>
+          <div class="blb-label">${left < 0 ? 'Over!' : 'Left'}</div>
+        </div>
+      </div>
+      ${monthly > 0 ? `
+      <div class="budget-bar-wrap">
+        <div class="budget-bar-track">
+          <div class="budget-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+        </div>
+        <div class="budget-bar-labels">
+          <span>Spent ₹${spent.toLocaleString('en-IN')}</span>
+          <span>${pct}%</span>
+        </div>
+      </div>` : ''}
+    </div>
+
+    <!-- Add Expense -->
+    <button class="btn-add-expense" onclick="openAddExpense()">
+      <i class="fa-solid fa-plus"></i> Add Expense
+    </button>
+
+    <!-- Category Filter -->
+    <div class="budget-cat-filter">
+      <button class="cat-chip ${budgetCatFilter==='all'?'active':''}" onclick="setBudgetFilter('all')">All</button>
+      ${BUDGET_CATS.map(c => `<button class="cat-chip ${budgetCatFilter===c?'active':''}" onclick="setBudgetFilter('${c}')">${c}</button>`).join('')}
+    </div>
+
+    <!-- Expense List -->
+    ${renderExpenseList()}
+  `;
+}
+
+function setBudgetFilter(cat) {
+  budgetCatFilter = cat;
+  renderBudgetPage();
+}
+
+function renderExpenseList() {
+  let expenses = getCurrentMonthExpenses().slice().reverse();
+  if (budgetCatFilter !== 'all') expenses = expenses.filter(e => e.cat === budgetCatFilter);
+  if (expenses.length === 0) return `<div class="budget-empty"><i class="fa-solid fa-wallet"></i><p>Koi expense nahi abhi</p></div>`;
+  return expenses.map(e => `
+    <div class="expense-item">
+      <div class="expense-cat-icon">${e.cat ? e.cat.split(' ')[0] : '📦'}</div>
+      <div class="expense-info">
+        <div class="expense-note">${e.note || e.cat || 'Expense'}</div>
+        <div class="expense-date">${e.cat || ''}  ·  ${formatDate(e.date)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="expense-amount">₹${e.amount.toLocaleString('en-IN')}</div>
+        <button onclick="deleteExpense('${e.id}',event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>`).join('');
+}
+
+function deleteExpense(id, event) {
+  event.stopPropagation();
+  budgetData.expenses = budgetData.expenses.filter(e => e.id !== id);
+  saveBudget();
+  renderBudgetPage();
+  renderHomeSummary();
+}
+
+// ---- Set Budget Modal ----
+function openSetBudget() {
+  document.getElementById('input-budget-amount').value = budgetData.monthly || '';
+  document.getElementById('budget-set-overlay').classList.remove('hidden');
+}
+function saveMonthlyBudget() {
+  const val = parseFloat(document.getElementById('input-budget-amount').value);
+  if (!val || val <= 0) { showToast('Valid amount daalo!'); return; }
+  budgetData.monthly = val;
+  saveBudget();
+  document.getElementById('budget-set-overlay').classList.add('hidden');
+  renderBudgetPage();
+  renderHomeSummary();
+  showToast('Budget set ho gaya! ✓');
+}
+
+// ---- Add Expense Modal ----
+let selectedExpCat = BUDGET_CATS[0];
+function openAddExpense() {
+  document.getElementById('input-exp-amount').value = '';
+  document.getElementById('input-exp-note').value = '';
+  document.getElementById('input-exp-date').value = getTodayDateStr();
+  selectedExpCat = BUDGET_CATS[0];
+  renderExpCatSelector();
+  document.getElementById('expense-add-overlay').classList.remove('hidden');
+}
+function renderExpCatSelector() {
+  document.getElementById('exp-cat-selector').innerHTML = BUDGET_CATS.map(c =>
+    `<button class="exp-cat-btn ${selectedExpCat===c?'active':''}" onclick="selectExpCat('${c}')">${c}</button>`
+  ).join('');
+}
+function selectExpCat(cat) {
+  selectedExpCat = cat;
+  renderExpCatSelector();
+}
+function saveExpense() {
+  const amount = parseFloat(document.getElementById('input-exp-amount').value);
+  const note   = document.getElementById('input-exp-note').value.trim();
+  const date   = document.getElementById('input-exp-date').value;
+  if (!amount || amount <= 0) { showToast('Amount daalo!'); return; }
+  budgetData.expenses.push({ id: Date.now().toString(), amount, cat: selectedExpCat, note, date });
+  saveBudget();
+  renderBudgetPage();
+  renderHomeSummary();
+  document.getElementById('expense-add-overlay').classList.add('hidden');
+  showToast('Expense add ho gaya! ✓');
+}
+
+// ==================== MESS MENU DATA ====================
+const MESS_STORAGE_KEY = 'campuskit_mess_choice';
+
+const MESS_MENU = {
+  north: {
+    Monday:    { breakfast: "Methi Puri (3), Uppma (2 spn), Alu Matar Curry",                          lunch: "Rice, Dal, Mix Veg Fry, Besan Curry, Dahi",                                   snacks: "Boiled Black Chhan Mix (1 Cup)",       dinner: "Rice, Dal, Roti, Lau Chanadal Curry, Kheer" },
+    Tuesday:   { breakfast: "Idili (2), Bara (3), Alu Matar Curry, Chatney",                            lunch: "Rice, Dal, Alu Chana Curry (Bengal Gram), Veg Fry",                           snacks: "Sprout Salad (1 cup)",                 dinner: "Rice, Dal Fry, Alu Kabuli Chana Masala, Triangle Papad" },
+    Wednesday: { breakfast: "Puri (3), Idili (2), Kabuli Alu Chana Curry, Chatney",                    lunch: "Rice, Dal, Pokodi Curry, Veg Chips",                                          snacks: "Dahi Bada (2 piece)",                  dinner: "Rice, Dal, Roti, Chicken Curry (NV) / Paneer Curry (V), Round Papad" },
+    Thursday:  { breakfast: "Idili (2), Upma, Alu Matar Curry, Chatney",                               lunch: "Rice, Dal, Mix Veg Curry, Dahi, Brinjal",                                     snacks: "Alu Chop (2 piece)",                   dinner: "Rice, Dal, Roti, Mix Veg Chilli, Gulab Jam / Laddu" },
+    Friday:    { breakfast: "Puri (3), Masala Upama, Aludum",                                          lunch: "Rice, Dal, Alu Drumstick Mix Besara, Veg Chips",                              snacks: "Sweet Corn (1 cup)",                   dinner: "Rice, Dal, Roti, Egg Masala 2pc (NV) / Paneer Masala (V)" },
+    Saturday:  { breakfast: "Poha (3), Idili (2), Alu Chana Curry, Chatney",                          lunch: "Rice, Dal, Soyabean Curry, Papad",                                            snacks: "Peanut & Moong Boiled (1 Cup)",        dinner: "Rice, Dal, Roti, Dal Tadaka, Suji Halwa (1st & 3rd) / Malpua (2nd & 4th)" },
+    Sunday:    { breakfast: "Chakuli (1), Masala Uppma, Matar Curry",                                  lunch: "Veg Pulao, Dahi Raita, Green Matar Alu Curry, Triangle Papad",                snacks: "Sambar Bada (2 piece)",               dinner: "Fried Rice, Kachumbar, Chicken Butter Masala (NV) / Paneer Butter Masala (V), Papad" },
+  },
+  south: {
+    Monday:    { breakfast: "Vada (3), Idili (2), White Chutny, Alam Chutney",                         lunch: "Rice, Dal Cahru, Soybean Chana Curry / Cabbage Tomato Curry, Curd",          snacks: "Boiled Black Chhan Mix (1 Cup)",       dinner: "Rice, Sambar, Curd, Semiya Kheer, Alu Gobi or Alu Beans Boiled Fry" },
+    Tuesday:   { breakfast: "Tamato Upma, Uttapam (2), White Chatny",                                  lunch: "Rice, Sambar, Cabbage Fry, Curd & Pickle",                                   snacks: "Sprout Salad (1 cup)",                 dinner: "Pulihora, Aloo Khurma, Curd" },
+    Wednesday: { breakfast: "Puri (2), Upama (2), Alu Matar Curry, Chutney",                          lunch: "Rice, Curd, Rasam, Chatny, Matar Curry, Chips",                              snacks: "Dahi Bada (2 piece)",                  dinner: "Rice, Chicken Fry (NV) / Paneer Curry (V), Sambhar" },
+    Thursday:  { breakfast: "Onion Bonda (3), Idilli (2), Coconut Chutney, Ginger Chutney",           lunch: "Rice, Tomato Dal, Curd, Pickle, Potato Fry",                                 snacks: "Alu Chop (2 piece)",                   dinner: "Rice, Dahi Charu, Rasam, Kabuli Chana Curry, Suji Halwa / Rice Payas" },
+    Friday:    { breakfast: "Masala Upama, Idili (3), White Chutney, Matar Curry",                    lunch: "Rice, Leafy Dal, Brinjal Curry, Curd, Chips",                                snacks: "Sweet Corn (1 cup)",                   dinner: "Egg Fried Rice / Paneer Fried Rice, Dahi Raita (1st & 3rd) / White Rice, Egg Curry (NV) / Paneer Curry, Rasam (2nd & 4th)" },
+    Saturday:  { breakfast: "Small Punugulu (10), Upama, White Chutney, Alam Chatny",                 lunch: "Rice, Sambar, Curd, Pickle, Chana Potato Greavy Curry",                      snacks: "Peanut & Moong Boiled (1 Cup)",        dinner: "Rice, Roti (3 nos.), Sambar, Chana Masala, Curd" },
+    Sunday:    { breakfast: "Sambar Idili (4), Coconut Chutney",                                       lunch: "Veg Pulao, Alu Khurma, Raita",                                                snacks: "Sambar Bada (2 piece)",               dinner: "Bagara Rice, Chicken Curry (NV) / Baby Corn / Paneer Curry (V), Raita" },
+  }
+};
+
+const MEAL_ICONS = { breakfast: '🌅', lunch: '☀️', snacks: '🍵', dinner: '🌙' };
+const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snacks: 'Snacks', dinner: 'Dinner' };
+
+let selectedMessDay = null;
+let selectedMess = 'north'; // 'north' | 'south'
+
+function getMessChoice() {
+  return localStorage.getItem(MESS_STORAGE_KEY) || 'north';
+}
+function setMessChoice(choice) {
+  selectedMess = choice;
+  localStorage.setItem(MESS_STORAGE_KEY, choice);
+}
+
+function renderMessMenu() {
+  selectedMess = getMessChoice();
+  const today = getTodayName();
+  if (!selectedMessDay) selectedMessDay = today;
+
+  // Tab buttons - mess selector
+  const northBtn = document.getElementById('mess-north-btn');
+  const southBtn = document.getElementById('mess-south-btn');
+  northBtn.classList.toggle('active', selectedMess === 'north');
+  southBtn.classList.toggle('active', selectedMess === 'south');
+
+  // Day tabs
+  const tabsEl = document.getElementById('mess-day-tabs');
+  tabsEl.innerHTML = '';
+  DAYS.forEach((day, i) => {
+    const btn = document.createElement('button');
+    const isToday = day === today;
+    btn.className = 'day-tab' + (day === selectedMessDay ? ' active' : '') + (isToday && day !== selectedMessDay ? ' today' : '');
+    btn.textContent = DAY_SHORT[i] + (isToday ? ' ★' : '');
+    btn.onclick = () => { selectedMessDay = day; renderMessMenu(); };
+    tabsEl.appendChild(btn);
+  });
+
+  // Menu content
+  const content = document.getElementById('mess-content');
+  const dayMenu = MESS_MENU[selectedMess][selectedMessDay];
+
+  content.innerHTML = Object.keys(MEAL_ICONS).map(meal => {
+    const isCurrentMeal = (meal === getCurrentMealTime());
+    return `
+      <div class="mess-meal-card ${isCurrentMeal ? 'current-meal' : ''}">
+        <div class="mess-meal-header">
+          <span class="mess-meal-icon">${MEAL_ICONS[meal]}</span>
+          <span class="mess-meal-label">${MEAL_LABELS[meal]}</span>
+          ${isCurrentMeal ? '<span class="mess-now-badge">● Now</span>' : ''}
+        </div>
+        <div class="mess-meal-items">${dayMenu[meal]}</div>
+      </div>`;
+  }).join('');
+}
+
+function getCurrentMealTime() {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 10)  return 'breakfast';
+  if (h >= 12 && h < 15) return 'lunch';
+  if (h >= 16 && h < 18) return 'snacks';
+  if (h >= 19 && h < 22) return 'dinner';
+  return null;
+}
+
+function switchMess(choice) {
+  setMessChoice(choice);
+  renderMessMenu();
+}
+
+// ==================== GUDIYA 👧 - SMART TALKING MASCOT ====================
+let gudiyaIndex = 0;
+let gudiyaMessages = [];
+let gudiyaBubbleTimer = null;
+
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  if (h < 5)  return 'raat';
+  if (h < 12) return 'subah';
+  if (h < 17) return 'dopahar';
+  if (h < 21) return 'shaam';
+  return 'raat';
+}
+
+function buildGudiyaMessages() {
+  const name = getUserName() || 'Bhaiya';
+  const firstName = name.split(' ')[0];
+  const time = getTimeGreeting();
+  const today = getTodayName();
+  const streak = getStreak();
+  const nextCls = hasTimetable() ? getNextClass(today) : null;
+  const totalClasses = hasTimetable()
+    ? (TIMETABLE[today] || []).filter(p => !['Lunch','Library','BASKET-II','Mentor'].includes(p.subject)).length
+    : 0;
+  const todayMess = getTodayMess();
+  const spent = getTotalSpent();
+  const monthly = budgetData.monthly;
+  const left = monthly - spent;
+  const pct = monthly > 0 ? Math.round((spent / monthly) * 100) : 0;
+  let totalLena = 0, totalDena = 0;
+  khataData.forEach(p => {
+    const net = getNetAmount(p);
+    if (net > 0) totalLena += net; else if (net < 0) totalDena += Math.abs(net);
+  });
+  const isWeekend = today === 'Saturday' || today === 'Sunday';
+  const msgs = [];
+
+  // ---- Time-based greetings ----
+  if (time === 'subah') {
+    msgs.push(`Good morning ${firstName}! ☀️ Uth gaye? Chalo aaj ka din shuru karte hain!`);
+    msgs.push(`Subah subah aap aa gaye! Main to wait kar rhi thi ${firstName} bhaiya! 😊`);
+    msgs.push(`Gudiya ko bhi neend aa rhi thi, but aapke liye jag gayi! 🥱😊`);
+  } else if (time === 'dopahar') {
+    msgs.push(`${firstName} bhaiya! Dopahar ho gyi, lunch kiya? 🍽️`);
+    msgs.push(`Hello ${firstName}! Dopahar mein bhi padhai? Waah! 👏`);
+    msgs.push(`Garmi mein paani peete rehna ${firstName} bhaiya! 💧`);
+  } else if (time === 'shaam') {
+    msgs.push(`Good evening ${firstName}! Kaisa rha aaj ka din? 🌇`);
+    msgs.push(`Shaam ho gyi ${firstName} bhaiya! Thoda rest karo! 😊`);
+    msgs.push(`Shaam ki chai pee lo ${firstName} bhaiya! ☕ Fresh feel aayega!`);
+  } else {
+    msgs.push(`${firstName} bhaiya! Itni raat ko? Soja na! 🌙😴`);
+    msgs.push(`Aree ${firstName}! Raat ho gyi, kal subah jaldi uthna hai na? 🥺`);
+    msgs.push(`Gudiya bhi so rhi thi, aapne jaga diya! 😴 Jaldi sona haan!`);
+  }
+
+  // ---- Class-related ----
+  if (totalClasses >= 5) {
+    msgs.push(`Aaj to ${totalClasses} class hain ${firstName} bhaiya! 😵 But tension mat lo, ek ek karke nikal jayengi!`);
+    msgs.push(`${totalClasses} class! Bahut zyada hain aaj 😤 But aap strong ho bhaiya! 💪`);
+  } else if (totalClasses >= 3) {
+    msgs.push(`Aaj ${totalClasses} class hain, normal din hai ${firstName} bhaiya! 📚`);
+  } else if (totalClasses > 0) {
+    msgs.push(`Aaj sirf ${totalClasses} class! Maza aayega aaj to! 😎`);
+    msgs.push(`Kya baat hai! Sirf ${totalClasses} class, baaki time masti! 🎉`);
+  }
+
+  if (nextCls) {
+    if (nextCls.ongoing) {
+      msgs.push(`Abhi ${nextCls.subject} chal rhi hai! Dhyan se suno bhaiya! 📖`);
+      msgs.push(`${nextCls.subject} mein ho abhi? Focus karo ${firstName} bhaiya! 🎯`);
+    } else {
+      msgs.push(`Next class ${nextCls.subject} hai, tayyar ho jao bhaiya! 📚`);
+      msgs.push(`${nextCls.subject} aane wala hai! Time: ${nextCls.time.split('-')[0].trim()} ⏰`);
+    }
+  } else if (hasTimetable() && !isWeekend) {
+    msgs.push(`Aaj ki sab class khatam ho gayi! 🎉 Ab maza karo bhaiya!`);
+    msgs.push(`No more class! Gudiya bhi khush hai! 🥳`);
+  }
+
+  if (isWeekend) {
+    msgs.push(`Aaj ${today} hai! Weekend mein enjoy karo ${firstName} bhaiya! 🎮`);
+    msgs.push(`Weekend! No class! Party time! 🥳🎉`);
+  }
+
+  // ---- Mess ----
+  if (todayMess) {
+    const firstItem = todayMess.items.split(',')[0].trim();
+    const yummy = todayMess.items.toLowerCase().includes('paneer') || todayMess.items.toLowerCase().includes('chicken');
+    msgs.push(`${todayMess.label} mein ${firstItem} hai aaj! ${yummy ? 'Yummyyy! 🤤' : '😋'}`);
+    msgs.push(`${firstName} bhaiya! ${todayMess.label} ka menu dekha? ${firstItem}! ${yummy ? 'Maza aayega! 🤤' : 'Achha hai! 👍'}`);
+  }
+
+  // ---- Budget ----
+  if (monthly > 0) {
+    if (pct >= 90) {
+      msgs.push(`Bhaiya budget ALMOST khatam! 😱 Sirf ₹${Math.abs(left)} bacha hai! Sambhal ke! 🥺`);
+      msgs.push(`Budget ka ${pct}% kharcha ho chuka! ${firstName} bhaiya dhyan do! 😬`);
+    } else if (pct >= 70) {
+      msgs.push(`Budget ka ${pct}% kharcha ho gaya hai! Thoda slow karo bhaiya! 😅`);
+    } else if (pct < 30 && spent > 0) {
+      msgs.push(`Budget ache se chal rha hai! ₹${left} bacha hai! Well done ${firstName} bhaiya! 💪`);
+    } else if (pct >= 30 && pct < 70) {
+      msgs.push(`₹${left} bacha hai budget mein! Normal pace hai ${firstName} bhaiya! 👍`);
+    }
+  } else {
+    msgs.push(`Bhaiya monthly budget set nahi kiya! Budget page pe jao na! 💰`);
+  }
+
+  // ---- Streak ----
+  if (streak >= 10) {
+    msgs.push(`OMG! ${streak} din ka streak! 🔥🔥🔥 ${firstName} bhaiya aap to legend ho! 🏆`);
+  } else if (streak >= 7) {
+    msgs.push(`Waah! ${streak} din ka streak! 🔥🔥 Champion bhaiya! 🏆`);
+  } else if (streak >= 3) {
+    msgs.push(`${streak} din ka streak! 🔥 Maza aa gaya! Keep going bhaiya!`);
+  } else if (streak === 1) {
+    msgs.push(`Aaj pehla din hai! Kal bhi aana, streak banayenge! 🔥`);
+  }
+
+  // ---- Khata ----
+  if (totalLena > 0) {
+    msgs.push(`Logon se ₹${totalLena.toLocaleString('en-IN')} lena hai! Yaad dila do unko bhaiya! 😤`);
+  }
+  if (totalDena > 0) {
+    msgs.push(`₹${totalDena.toLocaleString('en-IN')} dena hai logon ko! Bhool mat jaana bhaiya! 😊`);
+  }
+
+  // ---- Random fun / motivational ----
+  msgs.push(`${firstName} bhaiya aap best ho! Main hamesha yahan hoon! 🥰`);
+  msgs.push(`Padhai important hai but health bhi! Paani pee lo bhaiya! 💧`);
+  msgs.push(`Aaj kuch naya seekho! Har din better banna hai na! 📈`);
+  msgs.push(`Main Gudiya hoon! Aapki chhoti helper! 👧 Tap karo aur suno!`);
+  msgs.push(`Hostel ka khana kha ke bore ho gaye? Weekend pe bahar khana bhaiya! 🍕`);
+  msgs.push(`Ek smile do ${firstName} bhaiya! 😊 Gudiya khush ho jayegi!`);
+  msgs.push(`Kya pata kal exam aa jaye? Thoda thoda padh lo daily! 📝`);
+  msgs.push(`Friends ke saath time spend karo, college life ek baar aati hai! 🫂`);
+  msgs.push(`${firstName} bhaiya, aapka CampusKit app bahut achha hai! 😍`);
+  msgs.push(`Agar koi tension hai to deep breath lo! Sab theek hoga! 🌈`);
+
+  return msgs;
+}
+
+function getGudiyaMessage() {
+  if (gudiyaMessages.length === 0 || gudiyaIndex >= gudiyaMessages.length) {
+    gudiyaMessages = buildGudiyaMessages();
+    // Shuffle for variety
+    for (let i = gudiyaMessages.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [gudiyaMessages[i], gudiyaMessages[j]] = [gudiyaMessages[j], gudiyaMessages[i]];
+    }
+    gudiyaIndex = 0;
+  }
+  return gudiyaMessages[gudiyaIndex++];
+}
+
+function showGudiyaBubble(withVoice = true) {
+  const msg = getGudiyaMessage();
+  const bubble = document.getElementById('gudiya-bubble');
+  const textEl = document.getElementById('gudiya-text');
+  textEl.textContent = msg;
+  bubble.classList.remove('hidden');
+  // Re-trigger animation
+  bubble.classList.remove('gudiya-pop');
+  void bubble.offsetWidth;
+  bubble.classList.add('gudiya-pop');
+
+  // Speak if voice enabled
+  if (withVoice) speakGudiya(msg);
+
+  // Auto-hide after speech ends or 7 sec
+  clearTimeout(gudiyaBubbleTimer);
+  gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 7000);
+}
+
+function hideGudiyaBubble() {
+  const bubble = document.getElementById('gudiya-bubble');
+  if (bubble) {
+    bubble.classList.add('hidden');
+    bubble.classList.remove('gudiya-pop');
+  }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+function toggleGudiyaBubble() {
+  const bubble = document.getElementById('gudiya-bubble');
+  if (bubble.classList.contains('hidden')) {
+    showGudiyaBubble(true);
+  } else {
+    hideGudiyaBubble();
+    setTimeout(() => showGudiyaBubble(true), 250);
+  }
+}
+
+function speakGudiya(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+
+  // Remove emojis for cleaner speech
+  const clean = text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[●•✓✎⚡↑↓]/gu, '').replace(/\s+/g,' ').trim();
+
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang = 'hi-IN';
+  utter.rate = 1.0;
+  utter.pitch = 1.5;   // High pitch = choti bachi feel
+  utter.volume = 1.0;
+
+  // Find best Hindi/female voice
+  const voices = window.speechSynthesis.getVoices();
+  const hindiF = voices.find(v => v.lang.startsWith('hi') && /female|woman/i.test(v.name));
+  const hindi  = voices.find(v => v.lang.startsWith('hi'));
+  const anyF   = voices.find(v => /female|woman/i.test(v.name));
+  utter.voice = hindiF || hindi || anyF || null;
+
+  // Auto-hide bubble when speech ends
+  utter.onend = () => {
+    clearTimeout(gudiyaBubbleTimer);
+    gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 2000);
+  };
+
+  window.speechSynthesis.speak(utter);
+}
+
+function initGudiya() {
+  // Pre-load voices (async in some browsers)
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+  }
+  // Auto-greet after 1.5s
+  setTimeout(() => showGudiyaBubble(true), 1500);
+}
+
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', () => {
   selectedDay = getTodayName();
+  selectedMessDay = getTodayName();
+  updateStreak();
   initAuth();
 });
 

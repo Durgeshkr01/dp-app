@@ -1,7 +1,7 @@
 {
-  "name": "DP",
-  "short_name": "DP",
-  "description": "Class Timetable & Khata Book",
+  "name": "CampusKit",
+  "short_name": "CampusKit",
+  "description": "Timetable, Mess Menu & Khata Book",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#6C63FF",
