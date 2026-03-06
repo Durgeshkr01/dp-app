@@ -231,15 +231,25 @@ function getLabEntry(subject) {
 }
 
 function getLabSubjects() {
-  const nonAcademic = ['Lunch','Library','BASKET-II','Mentor','Job Readiness','Skill Course','Domain Project'];
+  const nonAcademic = ['lunch','library','basket-ii','mentor','job readiness','skill course','domain project'];
   const seen = new Set();
   const subjects = [];
+
   DAYS.forEach(day => {
     (TIMETABLE[day] || []).forEach(p => {
-      if (p.subject && !nonAcademic.includes(p.subject) && !seen.has(p.subject)) {
-        seen.add(p.subject);
-        subjects.push(p.subject);
-      }
+      if (!p.subject) return;
+      // Remove G1/G2 group labels anywhere in the name
+      const cleaned = p.subject
+        .replace(/\s*\(G\d+\)\s*/gi, ' ')
+        .replace(/\bG\d+\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/^\s*\/\s*|\s*\/\s*$/g, '')
+        .trim();
+      if (!cleaned) return;
+      if (nonAcademic.includes(cleaned.toLowerCase())) return;
+      if (seen.has(cleaned.toLowerCase())) return;
+      seen.add(cleaned.toLowerCase());
+      subjects.push(cleaned);
     });
   });
   return subjects;
