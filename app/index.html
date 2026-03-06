@@ -138,6 +138,14 @@
           </div>
           <i class="fa-solid fa-chevron-right card-arrow"></i>
         </div>
+        <div class="home-card lab-card" onclick="showPage('lab')">
+          <div class="card-icon"><i class="fa-solid fa-flask-vial"></i></div>
+          <div class="card-info">
+            <h3>Lab Assignments</h3>
+            <p>Track LL assignments</p>
+          </div>
+          <i class="fa-solid fa-chevron-right card-arrow"></i>
+        </div>
       </div>
       <div class="home-summary" id="home-summary">
         <!-- summary loaded by JS -->
@@ -192,6 +200,11 @@
       <div id="mess-content" class="mess-content"></div>
     </div>
 
+    <!-- ========== LAB ASSIGNMENT PAGE ========== -->
+    <div id="page-lab" class="page">
+      <div id="lab-page-content"></div>
+    </div>
+
     <!-- ========== KHATA BOOK PAGE ========== -->
     <div id="page-khata" class="page">
       <div class="khata-summary-bar" id="khata-summary-bar">
@@ -232,17 +245,12 @@
         <i class="fa-solid fa-book-open"></i>
         <span>Khata</span>
       </button>
+      <button class="nav-btn" id="nav-lab" onclick="showPage('lab')">
+        <i class="fa-solid fa-flask-vial"></i>
+        <span>Lab</span>
+      </button>
     </nav>
 
-    <!-- GUDIYA 👧 FLOATING MASCOT -->
-    <div id="gudiya-bubble" class="gudiya-bubble hidden">
-      <div class="gudiya-bubble-inner">
-        <span id="gudiya-text"></span>
-        <button class="gudiya-close" onclick="hideGudiyaBubble()">✕</button>
-      </div>
-      <div class="gudiya-bubble-arrow"></div>
-    </div>
-    <button class="gudiya-fab" id="gudiya-fab" onclick="toggleGudiyaBubble()" title="Gudiya 👧">👧</button>
   </div>
 
   <!-- ========== ADD KHATA MODAL ========== -->

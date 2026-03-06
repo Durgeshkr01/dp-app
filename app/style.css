@@ -1,4 +1,4 @@
-/* ========== RESET & BASE ========== */
+﻿/* ========== RESET & BASE ========== */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f2f5; }
 
@@ -105,6 +105,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 }
 .timetable-card .card-icon { background: #EEF0FF; color: #6C63FF; }
 .khata-card .card-icon { background: #DCFCE7; color: #16A34A; }
+.lab-card .card-icon { background: #FEF3C7; color: #D97706; }
 
 .card-info { flex: 1; }
 .card-info h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
@@ -677,77 +678,122 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   font-size: 14.5px; color: var(--text); line-height: 1.55; font-weight: 500;
 }
 
-/* ========== GUDIYA 👧 MASCOT ========== */
-.gudiya-fab {
-  position: fixed;
-  bottom: calc(var(--nav-height) + 18px);
-  right: 16px;
-  width: 58px; height: 58px;
-  border-radius: 50%;
-  border: 3px solid rgba(255,255,255,0.7);
-  background: linear-gradient(135deg, #FF6B9D 0%, #C850C0 50%, #7C3AED 100%);
-  font-size: 30px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 24px rgba(200,80,192,0.5), 0 0 0 4px rgba(200,80,192,0.15);
-  cursor: pointer;
-  z-index: 100;
-  animation: gudiya-float 3s ease-in-out infinite;
-  transition: transform 0.2s;
-}
-.gudiya-fab:active { transform: scale(0.88); animation: none; }
-
-@keyframes gudiya-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+/* ========== LAB ASSIGNMENT PAGE ========== */
+#lab-page-content {
+  padding: 16px 14px 90px;
 }
 
-.gudiya-bubble {
-  position: fixed;
-  bottom: calc(var(--nav-height) + 84px);
-  right: 12px;
-  max-width: 290px;
-  min-width: 200px;
-  z-index: 101;
+.lab-empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 24px; text-align: center;
 }
-.gudiya-bubble.hidden { display: none !important; }
-
-.gudiya-bubble-inner {
-  background: linear-gradient(135deg, #FFF5F9 0%, #FFF 60%);
-  border-radius: 20px 20px 6px 20px;
-  padding: 14px 36px 14px 16px;
-  box-shadow: 0 6px 30px rgba(200,80,192,0.2), 0 2px 8px rgba(0,0,0,0.08);
-  border: 2px solid #F8E0F0;
-  font-size: 14px;
-  color: #1A1A2E;
-  line-height: 1.55;
-  font-weight: 500;
-  position: relative;
+.lab-empty-icon { font-size: 52px; margin-bottom: 14px; }
+.lab-empty-state h3 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.lab-empty-state p { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; }
+.btn-goto-tt {
+  padding: 12px 24px; border-radius: 14px; border: none; cursor: pointer;
+  background: var(--primary); color: #fff; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
 }
 
-.gudiya-close {
-  position: absolute; top: 8px; right: 10px;
-  background: none; border: none;
-  color: #C0A0C0; font-size: 16px; cursor: pointer;
-  padding: 2px 5px; line-height: 1;
-  transition: color 0.2s;
+.lab-stats-bar {
+  display: flex; align-items: center; justify-content: space-around;
+  background: var(--card); border-radius: 16px; padding: 14px 10px;
+  margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
 }
-.gudiya-close:active { color: #333; }
+.lab-stat { text-align: center; flex: 1; }
+.lab-stat-val { font-size: 22px; font-weight: 800; color: var(--primary); }
+.lab-stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
+.lab-stat-divider { width: 1px; height: 36px; background: var(--border); }
 
-.gudiya-bubble-arrow {
-  width: 0; height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-top: 12px solid #FFF5F9;
-  margin-left: auto;
-  margin-right: 22px;
-  filter: drop-shadow(0 2px 2px rgba(200,80,192,0.1));
+.lab-list { display: flex; flex-direction: column; gap: 14px; }
+
+.lab-card {
+  background: var(--card); border-radius: 18px; padding: 16px 14px;
+  border-left: 5px solid var(--primary);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  transition: box-shadow 0.2s;
+}
+.lab-card.lab-written { background: rgba(34,197,94,0.06); }
+.lab-card.lab-verified { background: rgba(108,99,255,0.07); }
+
+.lab-subject-name {
+  font-size: 15px; font-weight: 800; margin-bottom: 12px;
+  line-height: 1.3;
 }
 
-.gudiya-pop {
-  animation: gudiya-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+.lab-toggles { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+
+.lab-toggle-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lab-toggle-label { font-size: 13px; font-weight: 600; color: var(--text-muted); min-width: 80px; }
+
+.lab-toggle-btns { display: flex; gap: 6px; }
+.lab-btn {
+  padding: 7px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  background: var(--bg); color: var(--text-muted);
+  transition: all 0.2s;
 }
-@keyframes gudiya-pop-in {
-  from { opacity: 0; transform: scale(0.7) translateY(16px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+.lab-btn-no.active {
+  background: rgba(239,68,68,0.12); color: #EF4444; border-color: #EF4444;
+}
+.lab-btn-yes.active {
+  background: rgba(34,197,94,0.14); color: #16A34A; border-color: #16A34A;
 }
 
+.lab-deadline-row {
+  border-top: 1px solid var(--border); padding-top: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.lab-deadline-label {
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.lab-deadline-input {
+  padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--text); font-size: 13px; font-weight: 600;
+  cursor: pointer; outline: none; font-family: inherit;
+  max-width: 180px;
+}
+.lab-deadline-input:focus { border-color: var(--primary); }
+
+.lab-deadline-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  max-width: fit-content;
+}
+.deadline-ok { background: rgba(34,197,94,0.13); color: #16A34A; }
+.deadline-soon { background: rgba(249,115,22,0.13); color: #EA580C; }
+.deadline-passed { background: rgba(239,68,68,0.14); color: #DC2626; }
+
+/* Lab type sections (Lab Record / Learning Record / Assignment) */
+.lab-type-section {
+  background: var(--bg); border-radius: 12px; padding: 12px;
+  margin-top: 10px; border: 1.5px solid var(--border);
+  transition: border-color 0.2s, background 0.2s;
+}
+.lab-type-section.lts-written {
+  background: rgba(249,115,22,0.06); border-color: rgba(249,115,22,0.3);
+}
+.lab-type-section.lts-done {
+  background: rgba(34,197,94,0.07); border-color: rgba(34,197,94,0.35);
+}
+.lab-type-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.lab-type-icon { font-size: 17px; }
+.lab-type-title { font-size: 13px; font-weight: 700; color: var(--text); flex: 1; }
+.lts-badge-done {
+  font-size: 11px; font-weight: 700; color: #16A34A;
+  background: rgba(34,197,94,0.14); padding: 3px 8px; border-radius: 8px;
+}
+.lts-badge-written {
+  font-size: 11px; font-weight: 700; color: #D97706;
+  background: rgba(249,115,22,0.12); padding: 3px 8px; border-radius: 8px;
+}
+.lab-all-done {
+  background: rgba(108,99,255,0.06) !important;
+}
+.lab-deadline-mini {
+  margin-top: 10px; display: flex; flex-direction: column; gap: 6px;
+}

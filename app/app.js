@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // MERA APP - Complete Logic
 // ============================================================
 
@@ -29,7 +29,7 @@ function handleExcelUpload(event) {
       if (!parsed) { showToast('Invalid format! Please check your file.'); return; }
       TIMETABLE = parsed;
       localStorage.setItem(TT_STORAGE_KEY, JSON.stringify(TIMETABLE));
-      showToast('Timetable uploaded successfully! ✓');
+      showToast('Timetable uploaded successfully! âœ“');
       renderTimetable();
       renderHomeSummary();
     } catch (err) {
@@ -82,7 +82,7 @@ function parseSheetRows(rows) {
       const isEnd = j === cells.length;
 
       if ((isNewCell || isEnd) && curSubject !== null) {
-        // Calculate time range: from timeSlots[startIdx] start → timeSlots[j-1] end
+        // Calculate time range: from timeSlots[startIdx] start â†’ timeSlots[j-1] end
         const tStart = slotStart(timeSlots[startIdx] || '');
         const tEnd   = slotEnd(timeSlots[Math.min(j, timeSlots.length) - 1] || '');
         periods.push({
@@ -111,19 +111,19 @@ function parseSheetRows(rows) {
 }
 
 function formatTimeSlot(raw) {
-  // Normalize: "9.30AM-10.30AM" → "9:30 AM - 10:30 AM"
+  // Normalize: "9.30AM-10.30AM" â†’ "9:30 AM - 10:30 AM"
   return raw.replace(/\./g, ':').replace(/([APap][Mm])/g, ' $1').trim();
 }
 
 function slotStart(slot) {
   if (!slot) return '';
-  const m = slot.match(/^(.+?)\s*[-–]\s*(.+)$/);
+  const m = slot.match(/^(.+?)\s*[-â€“]\s*(.+)$/);
   return m ? m[1].trim() : slot.trim();
 }
 
 function slotEnd(slot) {
   if (!slot) return '';
-  const m = slot.match(/^(.+?)\s*[-–]\s*(.+)$/);
+  const m = slot.match(/^(.+?)\s*[-â€“]\s*(.+)$/);
   return m ? m[2].trim() : slot.trim();
 }
 
@@ -132,7 +132,7 @@ function extractSubjectRoom(raw) {
   let room = '';
   let subject = raw.trim();
 
-  // Pattern 1: Room code at end — "Subject C-205", "Subject C-127", "IOT C-133"
+  // Pattern 1: Room code at end â€” "Subject C-205", "Subject C-127", "IOT C-133"
   // Room = letter(s)-number(s) at the very end, e.g. C-205, C-127, C-133
   const roomEndMatch = subject.match(/\s+([A-Z]{1,4}-\d{1,4}[A-Z]?)\s*$/i);
   if (roomEndMatch) {
@@ -141,7 +141,7 @@ function extractSubjectRoom(raw) {
     return { subject, room };
   }
 
-  // Pattern 2: Room in brackets at end — "Subject (C-205)"
+  // Pattern 2: Room in brackets at end â€” "Subject (C-205)"
   const bracketMatch = subject.match(/\(([A-Z]{1,4}-?\d{1,4}[A-Z]?)\)\s*$/i);
   if (bracketMatch) {
     room = bracketMatch[1].trim();
@@ -149,7 +149,7 @@ function extractSubjectRoom(raw) {
     return { subject, room };
   }
 
-  // Pattern 3: Lab room — "Lab-1", "LAB-4" etc at end
+  // Pattern 3: Lab room â€” "Lab-1", "LAB-4" etc at end
   const labMatch = subject.match(/\s+((?:CSE\s+)?Lab[-\s]?\d+)\s*$/i);
   if (labMatch) {
     room = labMatch[1].trim();
@@ -201,6 +201,174 @@ function saveKhataToStorage() {
   localStorage.setItem('campuskit_khata', JSON.stringify(khataData));
 }
 
+// ==================== LAB ASSIGNMENT DATA ====================
+// Structure per subject: { lab:{written,verified,deadline}, learning:{...}, assignment:{...} }
+const LAB_STORAGE_KEY = 'campuskit_lab';
+let labData = JSON.parse(localStorage.getItem(LAB_STORAGE_KEY) || '{}');
+
+function saveLabData() {
+  localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(labData));
+}
+
+function getLabEntry(subject) {
+  if (!labData[subject]) labData[subject] = {};
+  const s = labData[subject];
+  if (!s.lab)        s.lab        = { written: false, verified: false, deadline: '' };
+  if (!s.learning)   s.learning   = { written: false, verified: false, deadline: '' };
+  if (!s.assignment) s.assignment = { written: false, verified: false, deadline: '' };
+  return s;
+}
+
+function getLabSubjects() {
+  const nonAcademic = ['Lunch','Library','BASKET-II','Mentor','Job Readiness','Skill Course'];
+  const seen = new Set();
+  const subjects = [];
+  DAYS.forEach(day => {
+    (TIMETABLE[day] || []).forEach(p => {
+      if (p.subject && !nonAcademic.includes(p.subject) && !seen.has(p.subject)) {
+        seen.add(p.subject);
+        subjects.push(p.subject);
+      }
+    });
+  });
+  return subjects;
+}
+
+function toggleLabField(subject, type, field) {
+  const entry = getLabEntry(subject);
+  entry[type][field] = !entry[type][field];
+  if (field === 'written' && !entry[type].written) entry[type].verified = false;
+  saveLabData();
+  renderLabPage();
+}
+
+function saveLabTypeDeadline(subject, type, val) {
+  const entry = getLabEntry(subject);
+  entry[type].deadline = val;
+  saveLabData();
+  renderLabPage();
+}
+
+function renderLabTypeRow(label, icon, type, entry, escapedSubject, today) {
+  const d = entry[type];
+  const deadlinePassed = d.deadline && d.deadline < today;
+  const deadlineSoon   = d.deadline && !deadlinePassed && d.deadline <= new Date(Date.now() + 3*24*60*60*1000).toISOString().split('T')[0];
+
+  return `
+    <div class="lab-type-section ${d.written ? (d.verified ? 'lts-done' : 'lts-written') : ''}">
+      <div class="lab-type-header">
+        <span class="lab-type-icon">${icon}</span>
+        <span class="lab-type-title">${label}</span>
+        ${d.verified ? '<span class="lts-badge-done">&#10003; Verified</span>' : d.written ? '<span class="lts-badge-written">&#9998; Written</span>' : ''}
+      </div>
+      <div class="lab-toggle-group">
+        <span class="lab-toggle-label">Likha?</span>
+        <div class="lab-toggle-btns">
+          <button class="lab-btn ${!d.written ? 'lab-btn-no active' : 'lab-btn-no'}" onclick="toggleLabField('${escapedSubject}','${type}','written')">
+            ${d.written ? '&#10007; Nahi' : '&#10007; Nahi Likha'}
+          </button>
+          <button class="lab-btn ${d.written ? 'lab-btn-yes active' : 'lab-btn-yes'}" onclick="toggleLabField('${escapedSubject}','${type}','written')">
+            ${d.written ? '&#10003; Likh Liya!' : '&#10003; Likha'}
+          </button>
+        </div>
+      </div>
+      ${d.written ? `
+      <div class="lab-toggle-group">
+        <span class="lab-toggle-label">Verify Hua?</span>
+        <div class="lab-toggle-btns">
+          <button class="lab-btn ${!d.verified ? 'lab-btn-no active' : 'lab-btn-no'}" onclick="toggleLabField('${escapedSubject}','${type}','verified')">
+            ${d.verified ? '&#10007; Nahi' : '&#10007; Nahi Hua'}
+          </button>
+          <button class="lab-btn ${d.verified ? 'lab-btn-yes active' : 'lab-btn-yes'}" onclick="toggleLabField('${escapedSubject}','${type}','verified')">
+            ${d.verified ? '&#10003; Verified! &#9989;' : '&#10003; Ho Gaya'}
+          </button>
+        </div>
+      </div>` : ''}
+      <div class="lab-deadline-mini">
+        <label class="lab-deadline-label"><i class="fa-solid fa-calendar-check"></i> Submit date:</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input type="date" class="lab-deadline-input" value="${d.deadline || ''}"
+            onchange="saveLabTypeDeadline('${escapedSubject}','${type}',this.value)" />
+          ${d.deadline ? `<div class="lab-deadline-badge ${deadlinePassed ? 'deadline-passed' : deadlineSoon ? 'deadline-soon' : 'deadline-ok'}">
+            ${deadlinePassed ? '&#9888; Nikal gayi!' : deadlineSoon ? '&#9200; ' + formatDate(d.deadline) : '&#128197; ' + formatDate(d.deadline)}
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderLabPage() {
+  const container = document.getElementById('lab-page-content');
+  if (!container) return;
+
+  if (!hasTimetable()) {
+    container.innerHTML = `
+      <div class="lab-empty-state">
+        <div class="lab-empty-icon">&#128197;</div>
+        <h3>Pehle Timetable Upload Karo!</h3>
+        <p>Timetable se subjects automatically aa jayenge</p>
+        <button class="btn-goto-tt" onclick="showPage('timetable')"><i class="fa-solid fa-calendar-plus"></i> Timetable Upload Karo</button>
+      </div>`;
+    return;
+  }
+
+  const subjects = getLabSubjects();
+  if (subjects.length === 0) {
+    container.innerHTML = `<div class="lab-empty-state"><div class="lab-empty-icon">&#128218;</div><h3>Koi subject nahi mila</h3></div>`;
+    return;
+  }
+
+  const today = getTodayDateStr();
+  const TYPES = ['lab','learning','assignment'];
+  let totalItems = subjects.length * 3;
+  let writtenCount = 0, verifiedCount = 0;
+  subjects.forEach(s => {
+    const e = getLabEntry(s);
+    TYPES.forEach(t => {
+      if (e[t].written)  writtenCount++;
+      if (e[t].verified) verifiedCount++;
+    });
+  });
+
+  let html = `
+    <div class="lab-stats-bar">
+      <div class="lab-stat">
+        <div class="lab-stat-val">${writtenCount}/${totalItems}</div>
+        <div class="lab-stat-label">&#9997;&#65039; Written</div>
+      </div>
+      <div class="lab-stat-divider"></div>
+      <div class="lab-stat">
+        <div class="lab-stat-val">${verifiedCount}/${totalItems}</div>
+        <div class="lab-stat-label">&#9989; Verified</div>
+      </div>
+      <div class="lab-stat-divider"></div>
+      <div class="lab-stat">
+        <div class="lab-stat-val">${totalItems - writtenCount}</div>
+        <div class="lab-stat-label">&#8987; Pending</div>
+      </div>
+    </div>
+    <div class="lab-list">`;
+
+  subjects.forEach(subject => {
+    const entry = getLabEntry(subject);
+    const color = subjectColor(subject);
+    const escapedSubject = subject.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const allDone = TYPES.every(t => entry[t].verified);
+    const anyWritten = TYPES.some(t => entry[t].written);
+
+    html += `
+      <div class="lab-card ${allDone ? 'lab-all-done' : anyWritten ? 'lab-written' : ''}" style="border-left-color:${color};">
+        <div class="lab-subject-name" style="color:${color};">${subject}</div>
+        ${renderLabTypeRow('Lab Record', '&#128300;', 'lab', entry, escapedSubject, today)}
+        ${renderLabTypeRow('Learning Record', '&#128214;', 'learning', entry, escapedSubject, today)}
+        ${renderLabTypeRow('Assignment', '&#128221;', 'assignment', entry, escapedSubject, today)}
+      </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 // ==================== NAVIGATION ====================
 let currentPage = 'home';
 
@@ -211,7 +379,7 @@ function showPage(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-' + page).classList.add('active');
 
-  const titles = { home: 'CampusKit', timetable: 'Class Timetable', khata: 'Khata Book', mess: 'Mess Menu', budget: 'Pocket Money' };
+  const titles = { home: 'CampusKit', timetable: 'Class Timetable', khata: 'Khata Book', mess: 'Mess Menu', budget: 'Pocket Money', lab: 'Lab Assignments' };
   document.getElementById('page-title').textContent = titles[page] || 'CampusKit';
 
   const khataHeaderBtn = document.getElementById('khata-header-btn');
@@ -227,6 +395,7 @@ function showPage(page) {
   if (page === 'home') renderHomeSummary();
   if (page === 'mess') renderMessMenu();
   if (page === 'budget') renderBudgetPage();
+  if (page === 'lab') renderLabPage();
 }
 
 // ==================== TIMETABLE ====================
@@ -263,7 +432,7 @@ function renderTimetable() {
     const shortIdx = DAYS.indexOf(day);
     const btn = document.createElement('button');
     btn.className = 'day-tab' + (day === selectedDay ? ' active' : '') + (day === today && day !== selectedDay ? ' today' : '');
-    btn.textContent = DAY_SHORT[shortIdx] + (day === today ? ' ★' : '');
+    btn.textContent = DAY_SHORT[shortIdx] + (day === today ? ' â˜…' : '');
     btn.onclick = () => { selectedDay = day; renderTimetable(); };
     tabsEl.appendChild(btn);
   });
@@ -295,7 +464,7 @@ function renderDaySchedule(day) {
   const periods = TIMETABLE[day] || [];
 
   if (day === 'Sunday' || periods.length === 0) {
-    content.innerHTML = `<div class="no-class"><i class="fa-solid fa-umbrella-beach"></i><p>No class today!<br/>Enjoy your day 😴</p></div>`;
+    content.innerHTML = `<div class="no-class"><i class="fa-solid fa-umbrella-beach"></i><p>No class today!<br/>Enjoy your day ðŸ˜´</p></div>`;
     return;
   }
 
@@ -310,7 +479,7 @@ function renderDaySchedule(day) {
 
     if (isLunch) {
       return `<div style="text-align:center;padding:8px 0;color:var(--text-muted);font-size:13px;font-weight:600;">
-        🍽️ ── Lunch Break (${p.time}) ──</div>`;
+        ðŸ½ï¸ â”€â”€ Lunch Break (${p.time}) â”€â”€</div>`;
     }
 
     if (isSpecial) {
@@ -327,7 +496,7 @@ function renderDaySchedule(day) {
       <div class="period-info">
         <div class="period-subject">${p.subject}</div>
         ${p.teacher ? `<div class="period-teacher">${p.teacher}</div>` : ''}
-        ${isCurrent ? '<span class="period-now-badge">● Ongoing</span>' : ''}
+        ${isCurrent ? '<span class="period-now-badge">â— Ongoing</span>' : ''}
       </div>
       ${p.room ? `<div class="period-room">${p.room}</div>` : ''}
     </div>`;
@@ -360,11 +529,11 @@ function renderHomeSummary() {
   const greetEl = document.getElementById('welcome-greeting');
   const streakEl = document.getElementById('streak-badge');
   const name = getUserName();
-  if (greetEl) greetEl.textContent = name ? `Hello, ${name}! 👋` : 'Hello! 👋';
+  if (greetEl) greetEl.textContent = name ? `Hello, ${name}! ðŸ‘‹` : 'Hello! ðŸ‘‹';
   const streak = getStreak();
   if (streakEl) {
     streakEl.innerHTML = streak > 0
-      ? `<span class="streak-badge">🔥 ${streak} day${streak>1?'s':''}</span>` : '';
+      ? `<span class="streak-badge">ðŸ”¥ ${streak} day${streak>1?'s':''}</span>` : '';
   }
 
   const today    = getTodayName();
@@ -382,30 +551,30 @@ function renderHomeSummary() {
   summaryEl.innerHTML = `
 
     <!-- Aaj Ka Din glance -->
-    <div class="aajkadin-header">⚡ Aaj Ka Din</div>
+    <div class="aajkadin-header">âš¡ Aaj Ka Din</div>
     <div class="aajkadin-grid">
 
       <!-- Next Class -->
       <div class="akd-card class-card" onclick="showPage('timetable')">
-        <div class="akd-icon">📚</div>
+        <div class="akd-icon">ðŸ“š</div>
         <div class="akd-info">
           <div class="akd-label">Next Class</div>
           ${nextCls
             ? `<div class="akd-value">${nextCls.subject}</div>
-               <div class="akd-sub">${nextCls.ongoing ? '🟢 Ongoing' : nextCls.time.split('-')[0].trim()}</div>`
-            : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">No more classes 🎉</div>`
+               <div class="akd-sub">${nextCls.ongoing ? 'ðŸŸ¢ Ongoing' : nextCls.time.split('-')[0].trim()}</div>`
+            : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">No more classes ðŸŽ‰</div>`
           }
         </div>
       </div>
 
       <!-- Mess Today -->
       <div class="akd-card mess-card-home" onclick="showPage('mess')">
-        <div class="akd-icon">${todayMess ? todayMess.icon : '🍽️'}</div>
+        <div class="akd-icon">${todayMess ? todayMess.icon : 'ðŸ½ï¸'}</div>
         <div class="akd-info">
           <div class="akd-label">${todayMess ? todayMess.label : 'Mess Menu'}</div>
           ${todayMess
             ? `<div class="akd-value" style="font-size:12px;line-height:1.4;">${todayMess.items.split(',').slice(0,2).join(', ')}&hellip;</div>
-               <div class="akd-sub">${todayMess.mess === 'north' ? '🏠 North' : '🏠 South'}</div>`
+               <div class="akd-sub">${todayMess.mess === 'north' ? 'ðŸ  North' : 'ðŸ  South'}</div>`
             : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">Tap to check menu</div>`
           }
         </div>
@@ -413,12 +582,12 @@ function renderHomeSummary() {
 
       <!-- Budget -->
       <div class="akd-card budget-card-home" onclick="showPage('budget')">
-        <div class="akd-icon">💰</div>
+        <div class="akd-icon">ðŸ’°</div>
         <div class="akd-info">
           <div class="akd-label">Pocket Money</div>
           ${budgetData.monthly > 0
-            ? `<div class="akd-value ${left<0?'danger-text':''}">₹${Math.abs(left).toLocaleString('en-IN')} ${left<0?'over':'left'}</div>
-               <div class="akd-sub">Spent ₹${spent.toLocaleString('en-IN')}</div>`
+            ? `<div class="akd-value ${left<0?'danger-text':''}">â‚¹${Math.abs(left).toLocaleString('en-IN')} ${left<0?'over':'left'}</div>
+               <div class="akd-sub">Spent â‚¹${spent.toLocaleString('en-IN')}</div>`
             : `<div class="akd-value" style="color:var(--primary);font-size:12px;">+ Set monthly budget</div>`
           }
         </div>
@@ -426,11 +595,11 @@ function renderHomeSummary() {
 
       <!-- Khata -->
       <div class="akd-card khata-card-home" onclick="showPage('khata')">
-        <div class="akd-icon">📒</div>
+        <div class="akd-icon">ðŸ“’</div>
         <div class="akd-info">
           <div class="akd-label">Khata</div>
-          <div class="akd-value" style="color:#22C55E;font-size:13px;">↓ ₹${totalLena.toLocaleString('en-IN')}</div>
-          <div class="akd-sub" style="color:#EF4444;">↑ ₹${totalDena.toLocaleString('en-IN')}</div>
+          <div class="akd-value" style="color:#22C55E;font-size:13px;">â†“ â‚¹${totalLena.toLocaleString('en-IN')}</div>
+          <div class="akd-sub" style="color:#EF4444;">â†‘ â‚¹${totalDena.toLocaleString('en-IN')}</div>
         </div>
       </div>
 
@@ -465,11 +634,11 @@ function renderKhataList() {
   document.getElementById('khata-summary-bar').innerHTML = `
     <div class="ksb-card lena">
       <div class="ksb-label">I Will Receive</div>
-      <div class="ksb-value">₹${totalLena.toLocaleString('en-IN')}</div>
+      <div class="ksb-value">â‚¹${totalLena.toLocaleString('en-IN')}</div>
     </div>
     <div class="ksb-card dena">
       <div class="ksb-label">I Need to Pay</div>
-      <div class="ksb-value">₹${totalDena.toLocaleString('en-IN')}</div>
+      <div class="ksb-value">â‚¹${totalDena.toLocaleString('en-IN')}</div>
     </div>
   `;
 
@@ -499,10 +668,10 @@ function renderKhataList() {
       <div class="khata-info">
         <div class="khata-naam">${person.naam}</div>
         <div class="khata-note">${note}</div>
-        <div class="khata-txn-count">${person.phone ? `<i class="fa-brands fa-whatsapp" style="color:#25D366"></i> +91 ${person.phone} &nbsp;·&nbsp; ` : ''}${person.transactions.length} transaction${person.transactions.length !== 1 ? 's' : ''}</div>
+        <div class="khata-txn-count">${person.phone ? `<i class="fa-brands fa-whatsapp" style="color:#25D366"></i> +91 ${person.phone} &nbsp;Â·&nbsp; ` : ''}${person.transactions.length} transaction${person.transactions.length !== 1 ? 's' : ''}</div>
       </div>
       <div class="khata-amount">
-        <div class="amount ${amountClass}">₹${Math.abs(net).toLocaleString('en-IN')}</div>
+        <div class="amount ${amountClass}">â‚¹${Math.abs(net).toLocaleString('en-IN')}</div>
         <div class="type-label ${labelClass}">${typeLabel}</div>
       </div>
     </div>`;
@@ -568,8 +737,8 @@ function openDetail(personId) {
   const initials = person.naam.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
 
   let netClass = net > 0 ? 'lena' : net < 0 ? 'dena' : 'settled';
-  let netText = net > 0 ? `₹${net.toLocaleString('en-IN')} to receive` :
-                net < 0 ? `₹${Math.abs(net).toLocaleString('en-IN')} to pay` : 'Settled ✓';
+  let netText = net > 0 ? `â‚¹${net.toLocaleString('en-IN')} to receive` :
+                net < 0 ? `â‚¹${Math.abs(net).toLocaleString('en-IN')} to pay` : 'Settled âœ“';
 
   document.getElementById('detail-header').innerHTML = `
     <div class="detail-avatar" style="background:${color}">${initials}</div>
@@ -591,12 +760,12 @@ function openDetail(personId) {
     document.getElementById('detail-transactions').innerHTML = txns.map((t, i) => `
       <div class="txn-row">
         <div class="txn-left">
-          <div class="txn-note">${t.note || '—'}</div>
+          <div class="txn-note">${t.note || 'â€”'}</div>
           <div class="txn-date">${formatDate(t.date)}</div>
           <span class="txn-type-badge ${t.type}">${t.type === 'lena' ? 'To Receive' : 'To Pay'}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <div class="txn-amount ${t.type}">${t.type === 'lena' ? '+' : '-'}₹${t.amount.toLocaleString('en-IN')}</div>
+          <div class="txn-amount ${t.type}">${t.type === 'lena' ? '+' : '-'}â‚¹${t.amount.toLocaleString('en-IN')}</div>
           <button onclick="deleteTxn('${person.id}','${t.id}',event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;font-size:14px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
@@ -636,11 +805,11 @@ function sendWhatsAppReminder() {
   const net = getNetAmount(person);
   let msg = '';
   if (net > 0) {
-    msg = `Hi ${person.naam}, you owe me ₹${net.toLocaleString('en-IN')}. Let me know when you're free. 🙏`;
+    msg = `Hi ${person.naam}, you owe me â‚¹${net.toLocaleString('en-IN')}. Let me know when you're free. ðŸ™`;
   } else if (net < 0) {
-    msg = `Hi ${person.naam}, I owe you ₹${Math.abs(net).toLocaleString('en-IN')}. Just reminding myself. 🙏`;
+    msg = `Hi ${person.naam}, I owe you â‚¹${Math.abs(net).toLocaleString('en-IN')}. Just reminding myself. ðŸ™`;
   } else {
-    msg = `Hi ${person.naam}, our dues are all settled. Thanks! ✅`;
+    msg = `Hi ${person.naam}, our dues are all settled. Thanks! âœ…`;
   }
 
   const url = `https://wa.me/91${person.phone}?text=${encodeURIComponent(msg)}`;
@@ -789,10 +958,10 @@ function initAuth() {
   document.getElementById('login-screen').style.display = 'flex';
 
   if (!hasName) {
-    // Very first time — ask for name
+    // Very first time â€” ask for name
     pinStep = 'name';
     showNameStep();
-    setLoginUITitleOnly('Welcome! 👋', 'Tell us your name to get started');
+    setLoginUITitleOnly('Welcome! ðŸ‘‹', 'Tell us your name to get started');
     // Allow Enter key on name input
     document.getElementById('input-user-name').addEventListener('keydown', e => {
       if (e.key === 'Enter') submitName();
@@ -805,7 +974,7 @@ function initAuth() {
     pinStep = 'login';
     showPinStep();
     const name = getUserName();
-    setLoginUI(`Welcome back, ${name}! 👋`, 'Enter your PIN to open the app');
+    setLoginUI(`Welcome back, ${name}! ðŸ‘‹`, 'Enter your PIN to open the app');
   }
 }
 
@@ -816,14 +985,13 @@ function setLoginUITitleOnly(title, sub) {
 
 function hidLoginShowApp() {
   document.getElementById('login-screen').style.display = 'none';
-  // Now do normal splash → app flow
+  // Now do normal splash â†’ app flow
   setTimeout(() => {
     document.getElementById('splash').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('splash').style.display = 'none';
       document.getElementById('main-app').classList.remove('hidden');
       showPage('home');
-      initGudiya(); // Start Gudiya mascot
     }, 500);
   }, 800);
 }
@@ -870,10 +1038,10 @@ function handlePinComplete() {
     if (pinBuffer === pinFirst) {
       localStorage.setItem(STORAGE_PIN, pinFirst);
       localStorage.setItem(STORAGE_SESS, 'true');
-      showPinSuccess('PIN set successfully! ✓');
+      showPinSuccess('PIN set successfully! âœ“');
       setTimeout(() => hidLoginShowApp(), 700);
     } else {
-      showPinError('PIN did not match — please try again');
+      showPinError('PIN did not match â€” please try again');
       pinStep = 'setup';
       pinFirst = '';
       setTimeout(() => setLoginUI('Set Your PIN', 'Create a 4-digit PIN to secure your app'), 900);
@@ -883,10 +1051,10 @@ function handlePinComplete() {
     const saved = localStorage.getItem(STORAGE_PIN);
     if (pinBuffer === saved) {
       localStorage.setItem(STORAGE_SESS, 'true');
-      showPinSuccess('✓');
+      showPinSuccess('âœ“');
       setTimeout(() => hidLoginShowApp(), 400);
     } else {
-      showPinError('Wrong PIN — please try again');
+      showPinError('Wrong PIN â€” please try again');
       shakeDots();
       pinBuffer = '';
       updateDots();
@@ -962,7 +1130,7 @@ function getTotalSpent() {
   return getCurrentMonthExpenses().reduce((s, e) => s + e.amount, 0);
 }
 
-const BUDGET_CATS = ['🍔 Food', '🚌 Travel', '🛍️ Shopping', '📚 Study', '💊 Health', '🎮 Fun', '📦 Other'];
+const BUDGET_CATS = ['ðŸ” Food', 'ðŸšŒ Travel', 'ðŸ›ï¸ Shopping', 'ðŸ“š Study', 'ðŸ’Š Health', 'ðŸŽ® Fun', 'ðŸ“¦ Other'];
 let budgetCatFilter = 'all';
 
 function renderBudgetPage() {
@@ -983,12 +1151,12 @@ function renderBudgetPage() {
           <div class="budget-set-row">
             <span class="budget-set-label">Monthly Budget:</span>
             <button class="budget-edit-btn" onclick="openSetBudget()">
-              ${monthly > 0 ? `₹${monthly.toLocaleString('en-IN')} ✎` : '+ Set Budget'}
+              ${monthly > 0 ? `â‚¹${monthly.toLocaleString('en-IN')} âœŽ` : '+ Set Budget'}
             </button>
           </div>
         </div>
         <div class="budget-left-badge ${danger ? 'danger' : warn ? 'warn' : 'safe'}">
-          <div class="blb-amount">₹${Math.abs(left).toLocaleString('en-IN')}</div>
+          <div class="blb-amount">â‚¹${Math.abs(left).toLocaleString('en-IN')}</div>
           <div class="blb-label">${left < 0 ? 'Over!' : 'Left'}</div>
         </div>
       </div>
@@ -998,7 +1166,7 @@ function renderBudgetPage() {
           <div class="budget-bar-fill" style="width:${pct}%;background:${barColor};"></div>
         </div>
         <div class="budget-bar-labels">
-          <span>Spent ₹${spent.toLocaleString('en-IN')}</span>
+          <span>Spent â‚¹${spent.toLocaleString('en-IN')}</span>
           <span>${pct}%</span>
         </div>
       </div>` : ''}
@@ -1031,13 +1199,13 @@ function renderExpenseList() {
   if (expenses.length === 0) return `<div class="budget-empty"><i class="fa-solid fa-wallet"></i><p>Koi expense nahi abhi</p></div>`;
   return expenses.map(e => `
     <div class="expense-item">
-      <div class="expense-cat-icon">${e.cat ? e.cat.split(' ')[0] : '📦'}</div>
+      <div class="expense-cat-icon">${e.cat ? e.cat.split(' ')[0] : 'ðŸ“¦'}</div>
       <div class="expense-info">
         <div class="expense-note">${e.note || e.cat || 'Expense'}</div>
-        <div class="expense-date">${e.cat || ''}  ·  ${formatDate(e.date)}</div>
+        <div class="expense-date">${e.cat || ''}  Â·  ${formatDate(e.date)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <div class="expense-amount">₹${e.amount.toLocaleString('en-IN')}</div>
+        <div class="expense-amount">â‚¹${e.amount.toLocaleString('en-IN')}</div>
         <button onclick="deleteExpense('${e.id}',event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>`).join('');
@@ -1064,7 +1232,7 @@ function saveMonthlyBudget() {
   document.getElementById('budget-set-overlay').classList.add('hidden');
   renderBudgetPage();
   renderHomeSummary();
-  showToast('Budget set ho gaya! ✓');
+  showToast('Budget set ho gaya! âœ“');
 }
 
 // ---- Add Expense Modal ----
@@ -1096,7 +1264,7 @@ function saveExpense() {
   renderBudgetPage();
   renderHomeSummary();
   document.getElementById('expense-add-overlay').classList.add('hidden');
-  showToast('Expense add ho gaya! ✓');
+  showToast('Expense add ho gaya! âœ“');
 }
 
 // ==================== MESS MENU DATA ====================
@@ -1123,7 +1291,7 @@ const MESS_MENU = {
   }
 };
 
-const MEAL_ICONS = { breakfast: '🌅', lunch: '☀️', snacks: '🍵', dinner: '🌙' };
+const MEAL_ICONS = { breakfast: 'ðŸŒ…', lunch: 'â˜€ï¸', snacks: 'ðŸµ', dinner: 'ðŸŒ™' };
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snacks: 'Snacks', dinner: 'Dinner' };
 
 let selectedMessDay = null;
@@ -1155,7 +1323,7 @@ function renderMessMenu() {
     const btn = document.createElement('button');
     const isToday = day === today;
     btn.className = 'day-tab' + (day === selectedMessDay ? ' active' : '') + (isToday && day !== selectedMessDay ? ' today' : '');
-    btn.textContent = DAY_SHORT[i] + (isToday ? ' ★' : '');
+    btn.textContent = DAY_SHORT[i] + (isToday ? ' â˜…' : '');
     btn.onclick = () => { selectedMessDay = day; renderMessMenu(); };
     tabsEl.appendChild(btn);
   });
@@ -1171,7 +1339,7 @@ function renderMessMenu() {
         <div class="mess-meal-header">
           <span class="mess-meal-icon">${MEAL_ICONS[meal]}</span>
           <span class="mess-meal-label">${MEAL_LABELS[meal]}</span>
-          ${isCurrentMeal ? '<span class="mess-now-badge">● Now</span>' : ''}
+          ${isCurrentMeal ? '<span class="mess-now-badge">â— Now</span>' : ''}
         </div>
         <div class="mess-meal-items">${dayMenu[meal]}</div>
       </div>`;
@@ -1190,276 +1358,6 @@ function getCurrentMealTime() {
 function switchMess(choice) {
   setMessChoice(choice);
   renderMessMenu();
-}
-
-// ==================== GUDIYA 👧 - SMART TALKING MASCOT ====================
-let gudiyaIndex = 0;
-let gudiyaMessages = [];
-let gudiyaBubbleTimer = null;
-
-function getTimeGreeting() {
-  const h = new Date().getHours();
-  if (h < 5)  return 'raat';
-  if (h < 12) return 'subah';
-  if (h < 17) return 'dopahar';
-  if (h < 21) return 'shaam';
-  return 'raat';
-}
-
-function buildGudiyaMessages() {
-  const name = getUserName() || 'Friend';
-  const firstName = name.split(' ')[0];
-  const h = getHonorific(); // 'bhaiya' or 'didi'
-  const time = getTimeGreeting();
-  const today = getTodayName();
-  const streak = getStreak();
-  const nextCls = hasTimetable() ? getNextClass(today) : null;
-  const totalClasses = hasTimetable()
-    ? (TIMETABLE[today] || []).filter(p => !['Lunch','Library','BASKET-II','Mentor'].includes(p.subject)).length
-    : 0;
-  const todayMess = getTodayMess();
-  const spent = getTotalSpent();
-  const monthly = budgetData.monthly;
-  const left = monthly - spent;
-  const pct = monthly > 0 ? Math.round((spent / monthly) * 100) : 0;
-  let totalLena = 0, totalDena = 0;
-  khataData.forEach(p => {
-    const net = getNetAmount(p);
-    if (net > 0) totalLena += net; else if (net < 0) totalDena += Math.abs(net);
-  });
-  const isWeekend = today === 'Saturday' || today === 'Sunday';
-  const msgs = [];
-
-  // ---- Time-based greetings ----
-  if (time === 'subah') {
-    msgs.push(`Good morning ${firstName} ${h}! ☀️ Uth gaye? Chalo aaj ka din shuru karte hain!`);
-    msgs.push(`Subah subah aap aa gaye! Main to wait kar rhi thi ${firstName} ${h}! 😊`);
-    msgs.push(`Gudiya ko bhi neend aa rhi thi, but aapke liye jag gayi! 🥱😊`);
-  } else if (time === 'dopahar') {
-    msgs.push(`${firstName} ${h}! Dopahar ho gyi, lunch kiya? 🍽️`);
-    msgs.push(`Hello ${firstName}! Dopahar mein bhi padhai? Waah! 👏`);
-    msgs.push(`Garmi mein paani peete rehna ${firstName} ${h}! 💧`);
-  } else if (time === 'shaam') {
-    msgs.push(`Good evening ${firstName}! Kaisa rha aaj ka din? 🌇`);
-    msgs.push(`Shaam ho gyi ${firstName} ${h}! Thoda rest karo! 😊`);
-    msgs.push(`Shaam ki chai pee lo ${firstName} ${h}! ☕ Fresh feel aayega!`);
-  } else {
-    msgs.push(`${firstName} ${h}! Itni raat ko? Soja na! 🌙😴`);
-    msgs.push(`Aree ${firstName}! Raat ho gyi, kal subah jaldi uthna hai na? 🥺`);
-    msgs.push(`Gudiya bhi so rhi thi, aapne jaga diya! 😴 Jaldi sona haan!`);
-  }
-
-  // ---- Class-related ----
-  if (totalClasses >= 5) {
-    msgs.push(`Aaj to ${totalClasses} class hain ${firstName} ${h}! 😵 But tension mat lo, ek ek karke nikal jayengi!`);
-    msgs.push(`${totalClasses} class! Bahut zyada hain aaj 😤 But aap strong ho ${h}! 💪`);
-  } else if (totalClasses >= 3) {
-    msgs.push(`Aaj ${totalClasses} class hain, normal din hai ${firstName} ${h}! 📚`);
-  } else if (totalClasses > 0) {
-    msgs.push(`Aaj sirf ${totalClasses} class! Maza aayega aaj to! 😎`);
-    msgs.push(`Kya baat hai! Sirf ${totalClasses} class, baaki time masti! 🎉`);
-  }
-
-  if (nextCls) {
-    if (nextCls.ongoing) {
-      msgs.push(`Abhi ${nextCls.subject} chal rhi hai! Dhyan se suno ${h}! 📖`);
-      msgs.push(`${nextCls.subject} mein ho abhi? Focus karo ${firstName} ${h}! 🎯`);
-    } else {
-      msgs.push(`Next class ${nextCls.subject} hai, tayyar ho jao ${h}! 📚`);
-      msgs.push(`${nextCls.subject} aane wala hai! Time: ${nextCls.time.split('-')[0].trim()} ⏰`);
-    }
-  } else if (hasTimetable() && !isWeekend) {
-    msgs.push(`Aaj ki sab class khatam ho gayi! 🎉 Ab maza karo ${h}!`);
-    msgs.push(`No more class! Gudiya bhi khush hai! 🥳`);
-  }
-
-  if (isWeekend) {
-    msgs.push(`Aaj ${today} hai! Weekend mein enjoy karo ${firstName} ${h}! 🎮`);
-    msgs.push(`Weekend! No class! Party time! 🥳🎉`);
-  }
-
-  // ---- Mess ----
-  if (todayMess) {
-    const firstItem = todayMess.items.split(',')[0].trim();
-    const yummy = todayMess.items.toLowerCase().includes('paneer') || todayMess.items.toLowerCase().includes('chicken');
-    msgs.push(`${todayMess.label} mein ${firstItem} hai aaj! ${yummy ? 'Yummyyy! 🤤' : '😋'}`);
-    msgs.push(`${firstName} ${h}! ${todayMess.label} ka menu dekha? ${firstItem}! ${yummy ? 'Maza aayega! 🤤' : 'Achha hai! 👍'}`);
-  }
-
-  // ---- Budget ----
-  if (monthly > 0) {
-    if (pct >= 90) {
-      msgs.push(`${h} budget ALMOST khatam! 😱 Sirf ₹${Math.abs(left)} bacha hai! Sambhal ke! 🥺`);
-      msgs.push(`Budget ka ${pct}% kharcha ho chuka! ${firstName} ${h} dhyan do! 😬`);
-    } else if (pct >= 70) {
-      msgs.push(`Budget ka ${pct}% kharcha ho gaya hai! Thoda slow karo ${h}! 😅`);
-    } else if (pct < 30 && spent > 0) {
-      msgs.push(`Budget ache se chal rha hai! ₹${left} bacha hai! Well done ${firstName} ${h}! 💪`);
-    } else if (pct >= 30 && pct < 70) {
-      msgs.push(`₹${left} bacha hai budget mein! Normal pace hai ${firstName} ${h}! 👍`);
-    }
-  } else {
-    msgs.push(`${h} monthly budget set nahi kiya! Budget page pe jao na! 💰`);
-  }
-
-  // ---- Streak ----
-  if (streak >= 10) {
-    msgs.push(`OMG! ${streak} din ka streak! 🔥🔥🔥 ${firstName} ${h} aap to legend ho! 🏆`);
-  } else if (streak >= 7) {
-    msgs.push(`Waah! ${streak} din ka streak! 🔥🔥 Champion ${h}! 🏆`);
-  } else if (streak >= 3) {
-    msgs.push(`${streak} din ka streak! 🔥 Maza aa gaya! Keep going ${h}!`);
-  } else if (streak === 1) {
-    msgs.push(`Aaj pehla din hai! Kal bhi aana, streak banayenge! 🔥`);
-  }
-
-  // ---- Khata ----
-  if (totalLena > 0) {
-    msgs.push(`Logon se ₹${totalLena.toLocaleString('en-IN')} lena hai! Yaad dila do unko ${h}! 😤`);
-  }
-  if (totalDena > 0) {
-    msgs.push(`₹${totalDena.toLocaleString('en-IN')} dena hai logon ko! Bhool mat jaana ${h}! 😊`);
-  }
-
-  // ---- Random fun / motivational ----
-  msgs.push(`${firstName} ${h} aap best ho! Main hamesha yahan hoon! 🥰`);
-  msgs.push(`Padhai important hai but health bhi! Paani pee lo ${h}! 💧`);
-  msgs.push(`Aaj kuch naya seekho! Har din better banna hai na! 📈`);
-  msgs.push(`Main Gudiya hoon! Aapki chhoti helper! 👧 Tap karo aur suno!`);
-  msgs.push(`Hostel ka khana kha ke bore ho gaye? Weekend pe bahar khana ${h}! 🍕`);
-  msgs.push(`Ek smile do ${firstName} ${h}! 😊 Gudiya khush ho jayegi!`);
-  msgs.push(`Kya pata kal exam aa jaye? Thoda thoda padh lo daily! 📝`);
-  msgs.push(`Friends ke saath time spend karo, college life ek baar aati hai! 🫂`);
-  msgs.push(`${firstName} ${h}, aapka CampusKit app bahut achha hai! 😍`);
-  msgs.push(`Agar koi tension hai to deep breath lo! Sab theek hoga! 🌈`);
-
-  return msgs;
-}
-
-function getGudiyaMessage() {
-  if (gudiyaMessages.length === 0 || gudiyaIndex >= gudiyaMessages.length) {
-    gudiyaMessages = buildGudiyaMessages();
-    // Shuffle for variety
-    for (let i = gudiyaMessages.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [gudiyaMessages[i], gudiyaMessages[j]] = [gudiyaMessages[j], gudiyaMessages[i]];
-    }
-    gudiyaIndex = 0;
-  }
-  return gudiyaMessages[gudiyaIndex++];
-}
-
-function showGudiyaBubble(withVoice = true) {
-  const msg = getGudiyaMessage();
-  const bubble = document.getElementById('gudiya-bubble');
-  const textEl = document.getElementById('gudiya-text');
-  textEl.textContent = msg;
-  bubble.classList.remove('hidden');
-  // Re-trigger animation
-  bubble.classList.remove('gudiya-pop');
-  void bubble.offsetWidth;
-  bubble.classList.add('gudiya-pop');
-
-  // Speak if voice enabled
-  if (withVoice) speakGudiya(msg);
-
-  // Auto-hide after speech ends or 7 sec
-  clearTimeout(gudiyaBubbleTimer);
-  gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 7000);
-}
-
-function hideGudiyaBubble() {
-  const bubble = document.getElementById('gudiya-bubble');
-  if (bubble) {
-    bubble.classList.add('hidden');
-    bubble.classList.remove('gudiya-pop');
-  }
-  // Stop Google TTS audio
-  if (window._gudiyaAudio) {
-    window._gudiyaAudio.pause();
-    window._gudiyaAudio.currentTime = 0;
-  }
-  // Stop Web Speech API fallback
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-}
-
-function toggleGudiyaBubble() {
-  const bubble = document.getElementById('gudiya-bubble');
-  if (bubble.classList.contains('hidden')) {
-    showGudiyaBubble(true);
-  } else {
-    hideGudiyaBubble();
-    setTimeout(() => showGudiyaBubble(true), 250);
-  }
-}
-
-function speakGudiya(text) {
-  // Remove emojis for cleaner speech
-  const clean = text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[●•✓✎⚡↑↓]/gu, '').replace(/\s+/g,' ').trim();
-  if (!clean) return;
-
-  // Use Google Translate TTS — real natural female Hindi voice
-  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(clean)}&tl=hi&client=tw-ob`;
-
-  // Stop any previous audio
-  if (window._gudiyaAudio) {
-    window._gudiyaAudio.pause();
-    window._gudiyaAudio.currentTime = 0;
-  }
-
-  const audio = new Audio(url);
-  audio.playbackRate = 1.0;   // Normal speed = natural
-  audio.volume = 1.0;
-  window._gudiyaAudio = audio;
-
-  audio.onended = () => {
-    clearTimeout(gudiyaBubbleTimer);
-    gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 2000);
-  };
-
-  audio.onerror = () => {
-    // Fallback to Web Speech API if Google TTS fails (offline etc)
-    speakGudiyaFallback(clean);
-  };
-
-  audio.play().catch(() => speakGudiyaFallback(clean));
-}
-
-// Fallback: Web Speech API (when offline or Google TTS blocked)
-function speakGudiyaFallback(clean) {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-
-  const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang = 'hi-IN';
-  utter.rate = 0.95;
-  utter.pitch = 1.55;
-  utter.volume = 1.0;
-
-  const voices = window.speechSynthesis.getVoices();
-  let picked = voices.find(v => /google/i.test(v.name) && v.lang.startsWith('hi'))
-    || voices.find(v => /swara/i.test(v.name))
-    || voices.find(v => v.lang.startsWith('hi'))
-    || voices.find(v => /zira|neerja/i.test(v.name))
-    || voices.find(v => /female|woman/i.test(v.name));
-  if (picked) utter.voice = picked;
-
-  utter.onend = () => {
-    clearTimeout(gudiyaBubbleTimer);
-    gudiyaBubbleTimer = setTimeout(() => hideGudiyaBubble(), 2000);
-  };
-
-  window.speechSynthesis.speak(utter);
-}
-
-function initGudiya() {
-  // Pre-load voices (async in some browsers)
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.getVoices();
-    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-  }
-  // Auto-greet after 1.5s
-  setTimeout(() => showGudiyaBubble(true), 1500);
 }
 
 // ==================== INIT ====================
