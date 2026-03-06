@@ -202,7 +202,17 @@ function saveKhataToStorage() {
 }
 
 // ==================== LAB ASSIGNMENT DATA ====================
-// Structure per subject: { lab:{written,verified,deadline}, learning:{...}, assignment:{...} }
+/*
+  Data structure per subject:
+  {
+    skip: false,                          // "Kuch Nahi Hai"
+    lab:  { total:0, done:0, verified:0, deadline:'' },
+    learning: { total:0, done:0, verified:0, deadline:'' },
+    assignments: [                        // array — one per assignment
+      { id:'...', written:false, verified:false, deadline:'' }
+    ]
+  }
+*/
 const LAB_STORAGE_KEY = 'campuskit_lab';
 let labData = JSON.parse(localStorage.getItem(LAB_STORAGE_KEY) || '{}');
 
@@ -213,14 +223,15 @@ function saveLabData() {
 function getLabEntry(subject) {
   if (!labData[subject]) labData[subject] = {};
   const s = labData[subject];
-  if (!s.lab)        s.lab        = { written: false, verified: false, deadline: '' };
-  if (!s.learning)   s.learning   = { written: false, verified: false, deadline: '' };
-  if (!s.assignment) s.assignment = { written: false, verified: false, deadline: '' };
+  if (s.skip === undefined) s.skip = false;
+  if (!s.lab)      s.lab      = { total: 0, done: 0, verified: 0, deadline: '' };
+  if (!s.learning) s.learning = { total: 0, done: 0, verified: 0, deadline: '' };
+  if (!s.assignments) s.assignments = [{ id: Date.now().toString(), written: false, verified: false, deadline: '' }];
   return s;
 }
 
 function getLabSubjects() {
-  const nonAcademic = ['Lunch','Library','BASKET-II','Mentor','Job Readiness','Skill Course'];
+  const nonAcademic = ['Lunch','Library','BASKET-II','Mentor','Job Readiness','Skill Course','Domain Project'];
   const seen = new Set();
   const subjects = [];
   DAYS.forEach(day => {
@@ -234,67 +245,208 @@ function getLabSubjects() {
   return subjects;
 }
 
-function toggleLabField(subject, type, field) {
-  const entry = getLabEntry(subject);
-  entry[type][field] = !entry[type][field];
-  if (field === 'written' && !entry[type].written) entry[type].verified = false;
+// ---- Skip toggle ----
+function toggleLabSkip(subject) {
+  const e = getLabEntry(subject);
+  e.skip = !e.skip;
   saveLabData();
   renderLabPage();
 }
 
-function saveLabTypeDeadline(subject, type, val) {
-  const entry = getLabEntry(subject);
-  entry[type].deadline = val;
+// ---- Lab / Learning progress ----
+function updateLabProgress(subject, type, field, val) {
+  const e = getLabEntry(subject);
+  const num = Math.max(0, parseInt(val) || 0);
+  e[type][field] = num;
+  // clamp: done/verified cannot exceed total
+  if (field === 'total') {
+    if (e[type].done     > num) e[type].done     = num;
+    if (e[type].verified > num) e[type].verified = num;
+  }
+  if (field === 'done'     && e[type].done     > e[type].total) e[type].done     = e[type].total;
+  if (field === 'verified' && e[type].verified > e[type].done)  e[type].verified = e[type].done;
   saveLabData();
   renderLabPage();
 }
 
-function renderLabTypeRow(label, icon, type, entry, escapedSubject, today) {
+function updateLabDeadline(subject, type, val) {
+  const e = getLabEntry(subject);
+  e[type].deadline = val;
+  saveLabData();
+  renderLabPage();
+}
+
+// ---- Assignments ----
+function addAssignment(subject) {
+  const e = getLabEntry(subject);
+  e.assignments.push({ id: Date.now().toString(), written: false, verified: false, deadline: '' });
+  saveLabData();
+  renderLabPage();
+}
+
+function deleteAssignment(subject, id) {
+  const e = getLabEntry(subject);
+  if (e.assignments.length <= 1) { showToast('Kam se kam 1 assignment honi chahiye!'); return; }
+  e.assignments = e.assignments.filter(a => a.id !== id);
+  saveLabData();
+  renderLabPage();
+}
+
+function toggleAssignmentField(subject, id, field) {
+  const e = getLabEntry(subject);
+  const a = e.assignments.find(x => x.id === id);
+  if (!a) return;
+  a[field] = !a[field];
+  if (field === 'written' && !a.written) a.verified = false;
+  saveLabData();
+  renderLabPage();
+}
+
+function updateAssignmentDeadline(subject, id, val) {
+  const e = getLabEntry(subject);
+  const a = e.assignments.find(x => x.id === id);
+  if (!a) return;
+  a.deadline = val;
+  saveLabData();
+  renderLabPage();
+}
+
+// ---- Render helpers ----
+function deadlineBadge(deadline, today) {
+  if (!deadline) return '';
+  const passed = deadline < today;
+  const soon   = !passed && deadline <= new Date(Date.now() + 3*24*60*60*1000).toISOString().split('T')[0];
+  const cls    = passed ? 'deadline-passed' : soon ? 'deadline-soon' : 'deadline-ok';
+  const txt    = passed ? '&#9888; Nikal gayi!' : soon ? '&#9200; ' + formatDate(deadline) : '&#128197; ' + formatDate(deadline);
+  return `<span class="lab-deadline-badge ${cls}">${txt}</span>`;
+}
+
+function renderProgressSection(label, icon, type, entry, escapedSubject, today) {
   const d = entry[type];
-  const deadlinePassed = d.deadline && d.deadline < today;
-  const deadlineSoon   = d.deadline && !deadlinePassed && d.deadline <= new Date(Date.now() + 3*24*60*60*1000).toISOString().split('T')[0];
+  const total    = d.total    || 0;
+  const done     = d.done     || 0;
+  const verified = d.verified || 0;
+  const pending  = Math.max(0, total - done);
+  const pctDone  = total > 0 ? Math.round((done / total) * 100)     : 0;
+  const pctVerif = total > 0 ? Math.round((verified / total) * 100) : 0;
 
   return `
-    <div class="lab-type-section ${d.written ? (d.verified ? 'lts-done' : 'lts-written') : ''}">
+    <div class="lab-type-section ${done >= total && total > 0 ? (verified >= total ? 'lts-done' : 'lts-written') : ''}">
       <div class="lab-type-header">
         <span class="lab-type-icon">${icon}</span>
         <span class="lab-type-title">${label}</span>
-        ${d.verified ? '<span class="lts-badge-done">&#10003; Verified</span>' : d.written ? '<span class="lts-badge-written">&#9998; Written</span>' : ''}
+        ${verified >= total && total > 0 ? '<span class="lts-badge-done">&#10003; All Verified</span>' :
+          done >= total && total > 0     ? '<span class="lts-badge-written">&#9998; All Written</span>' : ''}
       </div>
-      <div class="lab-toggle-group">
-        <span class="lab-toggle-label">Likha?</span>
-        <div class="lab-toggle-btns">
-          <button class="lab-btn ${!d.written ? 'lab-btn-no active' : 'lab-btn-no'}" onclick="toggleLabField('${escapedSubject}','${type}','written')">
-            ${d.written ? '&#10007; Nahi' : '&#10007; Nahi Likha'}
-          </button>
-          <button class="lab-btn ${d.written ? 'lab-btn-yes active' : 'lab-btn-yes'}" onclick="toggleLabField('${escapedSubject}','${type}','written')">
-            ${d.written ? '&#10003; Likh Liya!' : '&#10003; Likha'}
-          </button>
+
+      <div class="lab-progress-fields">
+        <label class="lab-field-label">Total (kitna likhna hai):</label>
+        <input type="number" class="lab-num-input" min="0" value="${total}"
+          onchange="updateLabProgress('${escapedSubject}','${type}','total',this.value)" placeholder="0" />
+
+        <div class="lab-progress-row">
+          <div class="lab-prog-item">
+            <label class="lab-field-label">Done:</label>
+            <input type="number" class="lab-num-input" min="0" max="${total}" value="${done}"
+              onchange="updateLabProgress('${escapedSubject}','${type}','done',this.value)" placeholder="0" />
+          </div>
+          <div class="lab-prog-item">
+            <label class="lab-field-label">Verified:</label>
+            <input type="number" class="lab-num-input" min="0" max="${done}" value="${verified}"
+              onchange="updateLabProgress('${escapedSubject}','${type}','verified',this.value)" placeholder="0" />
+          </div>
+          <div class="lab-prog-item">
+            <label class="lab-field-label">Baki:</label>
+            <div class="lab-baki ${pending > 0 ? 'baki-red' : 'baki-green'}">${pending}</div>
+          </div>
         </div>
+
+        ${total > 0 ? `
+        <div class="lab-bar-wrap">
+          <div class="lab-bar">
+            <div class="lab-bar-fill-verified" style="width:${pctVerif}%"></div>
+            <div class="lab-bar-fill-done"     style="width:${Math.max(0, pctDone - pctVerif)}%; margin-left:${pctVerif}%"></div>
+          </div>
+          <div class="lab-bar-legend">
+            <span class="bar-leg bar-leg-done">${pctDone}% Written</span>
+            <span class="bar-leg bar-leg-verif">${pctVerif}% Verified</span>
+          </div>
+        </div>` : ''}
       </div>
-      ${d.written ? `
-      <div class="lab-toggle-group">
-        <span class="lab-toggle-label">Verify Hua?</span>
-        <div class="lab-toggle-btns">
-          <button class="lab-btn ${!d.verified ? 'lab-btn-no active' : 'lab-btn-no'}" onclick="toggleLabField('${escapedSubject}','${type}','verified')">
-            ${d.verified ? '&#10007; Nahi' : '&#10007; Nahi Hua'}
-          </button>
-          <button class="lab-btn ${d.verified ? 'lab-btn-yes active' : 'lab-btn-yes'}" onclick="toggleLabField('${escapedSubject}','${type}','verified')">
-            ${d.verified ? '&#10003; Verified! &#9989;' : '&#10003; Ho Gaya'}
-          </button>
-        </div>
-      </div>` : ''}
+
       <div class="lab-deadline-mini">
         <label class="lab-deadline-label"><i class="fa-solid fa-calendar-check"></i> Submit date:</label>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="lab-deadline-row-inner">
           <input type="date" class="lab-deadline-input" value="${d.deadline || ''}"
-            onchange="saveLabTypeDeadline('${escapedSubject}','${type}',this.value)" />
-          ${d.deadline ? `<div class="lab-deadline-badge ${deadlinePassed ? 'deadline-passed' : deadlineSoon ? 'deadline-soon' : 'deadline-ok'}">
-            ${deadlinePassed ? '&#9888; Nikal gayi!' : deadlineSoon ? '&#9200; ' + formatDate(d.deadline) : '&#128197; ' + formatDate(d.deadline)}
-          </div>` : ''}
+            onchange="updateLabDeadline('${escapedSubject}','${type}',this.value)" />
+          ${deadlineBadge(d.deadline, today)}
         </div>
       </div>
     </div>`;
+}
+
+function renderAssignmentsSection(entry, escapedSubject, today) {
+  const assignments = entry.assignments || [];
+  const doneCount = assignments.filter(a => a.written).length;
+  const verifCount = assignments.filter(a => a.verified).length;
+
+  let html = `
+    <div class="lab-type-section ${verifCount === assignments.length ? 'lts-done' : doneCount > 0 ? 'lts-written' : ''}">
+      <div class="lab-type-header">
+        <span class="lab-type-icon">&#128221;</span>
+        <span class="lab-type-title">Assignments</span>
+        <span class="lab-assgn-count">${verifCount}/${assignments.length} verified</span>
+      </div>`;
+
+  assignments.forEach((a, idx) => {
+    const passed = a.deadline && a.deadline < today;
+    const soon   = a.deadline && !passed && a.deadline <= new Date(Date.now() + 3*24*60*60*1000).toISOString().split('T')[0];
+    html += `
+      <div class="lab-assgn-item ${a.verified ? 'assgn-verified' : a.written ? 'assgn-written' : ''}">
+        <div class="lab-assgn-header">
+          <span class="lab-assgn-num">Assignment ${idx + 1}</span>
+          ${assignments.length > 1 ? `<button class="lab-assgn-del" onclick="deleteAssignment('${escapedSubject}','${a.id}')">&#10007;</button>` : ''}
+        </div>
+        <div class="lab-toggle-group">
+          <span class="lab-toggle-label">Likha?</span>
+          <div class="lab-toggle-btns">
+            <button class="lab-btn ${!a.written ? 'lab-btn-no active' : 'lab-btn-no'}" onclick="toggleAssignmentField('${escapedSubject}','${a.id}','written')">
+              ${a.written ? '&#10007; Nahi' : '&#10007; Nahi Likha'}
+            </button>
+            <button class="lab-btn ${a.written ? 'lab-btn-yes active' : 'lab-btn-yes'}" onclick="toggleAssignmentField('${escapedSubject}','${a.id}','written')">
+              ${a.written ? '&#10003; Likh Liya!' : '&#10003; Likha'}
+            </button>
+          </div>
+        </div>
+        ${a.written ? `
+        <div class="lab-toggle-group">
+          <span class="lab-toggle-label">Verify Hua?</span>
+          <div class="lab-toggle-btns">
+            <button class="lab-btn ${!a.verified ? 'lab-btn-no active' : 'lab-btn-no'}" onclick="toggleAssignmentField('${escapedSubject}','${a.id}','verified')">
+              ${a.verified ? '&#10007; Nahi' : '&#10007; Nahi Hua'}
+            </button>
+            <button class="lab-btn ${a.verified ? 'lab-btn-yes active' : 'lab-btn-yes'}" onclick="toggleAssignmentField('${escapedSubject}','${a.id}','verified')">
+              ${a.verified ? '&#10003; Verified! &#9989;' : '&#10003; Ho Gaya'}
+            </button>
+          </div>
+        </div>` : ''}
+        <div class="lab-deadline-mini">
+          <label class="lab-deadline-label"><i class="fa-solid fa-calendar-check"></i> Submit date:</label>
+          <div class="lab-deadline-row-inner">
+            <input type="date" class="lab-deadline-input" value="${a.deadline || ''}"
+              onchange="updateAssignmentDeadline('${escapedSubject}','${a.id}',this.value)" />
+            ${deadlineBadge(a.deadline, today)}
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += `
+      <button class="lab-add-assgn-btn" onclick="addAssignment('${escapedSubject}')">
+        <i class="fa-solid fa-plus"></i> Add Assignment
+      </button>
+    </div>`;
+  return html;
 }
 
 function renderLabPage() {
@@ -319,31 +471,46 @@ function renderLabPage() {
   }
 
   const today = getTodayDateStr();
-  const TYPES = ['lab','learning','assignment'];
-  let totalItems = subjects.length * 3;
-  let writtenCount = 0, verifiedCount = 0;
+  let totalAssgnItems = 0, writtenCount = 0, verifiedCount = 0;
+
   subjects.forEach(s => {
     const e = getLabEntry(s);
-    TYPES.forEach(t => {
-      if (e[t].written)  writtenCount++;
-      if (e[t].verified) verifiedCount++;
+    if (e.skip) return;
+    // lab + learning: count as 1 task each (if total > 0, else skip from count)
+    if (e.lab.total > 0) {
+      totalAssgnItems++;
+      if (e.lab.done >= e.lab.total)     writtenCount++;
+      if (e.lab.verified >= e.lab.total) verifiedCount++;
+    }
+    if (e.learning.total > 0) {
+      totalAssgnItems++;
+      if (e.learning.done >= e.learning.total)     writtenCount++;
+      if (e.learning.verified >= e.learning.total) verifiedCount++;
+    }
+    (e.assignments || []).forEach(a => {
+      totalAssgnItems++;
+      if (a.written)  writtenCount++;
+      if (a.verified) verifiedCount++;
     });
   });
+
+  const activeSubjects = subjects.filter(s => !getLabEntry(s).skip);
+  const skippedCount   = subjects.length - activeSubjects.length;
 
   let html = `
     <div class="lab-stats-bar">
       <div class="lab-stat">
-        <div class="lab-stat-val">${writtenCount}/${totalItems}</div>
+        <div class="lab-stat-val">${writtenCount}/${totalAssgnItems}</div>
         <div class="lab-stat-label">&#9997;&#65039; Written</div>
       </div>
       <div class="lab-stat-divider"></div>
       <div class="lab-stat">
-        <div class="lab-stat-val">${verifiedCount}/${totalItems}</div>
+        <div class="lab-stat-val">${verifiedCount}/${totalAssgnItems}</div>
         <div class="lab-stat-label">&#9989; Verified</div>
       </div>
       <div class="lab-stat-divider"></div>
       <div class="lab-stat">
-        <div class="lab-stat-val">${totalItems - writtenCount}</div>
+        <div class="lab-stat-val">${totalAssgnItems - writtenCount}</div>
         <div class="lab-stat-label">&#8987; Pending</div>
       </div>
     </div>
@@ -353,15 +520,22 @@ function renderLabPage() {
     const entry = getLabEntry(subject);
     const color = subjectColor(subject);
     const escapedSubject = subject.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    const allDone = TYPES.every(t => entry[t].verified);
-    const anyWritten = TYPES.some(t => entry[t].written);
+    const allAssgnsVerified = !entry.skip && entry.assignments.every(a => a.verified);
+    const anyProgress = !entry.skip && (entry.lab.done > 0 || entry.learning.done > 0 || entry.assignments.some(a => a.written));
 
     html += `
-      <div class="lab-card ${allDone ? 'lab-all-done' : anyWritten ? 'lab-written' : ''}" style="border-left-color:${color};">
-        <div class="lab-subject-name" style="color:${color};">${subject}</div>
-        ${renderLabTypeRow('Lab Record', '&#128300;', 'lab', entry, escapedSubject, today)}
-        ${renderLabTypeRow('Learning Record', '&#128214;', 'learning', entry, escapedSubject, today)}
-        ${renderLabTypeRow('Assignment', '&#128221;', 'assignment', entry, escapedSubject, today)}
+      <div class="lab-card ${entry.skip ? 'lab-skipped' : allAssgnsVerified ? 'lab-all-done' : anyProgress ? 'lab-written' : ''}" style="border-left-color:${entry.skip ? '#9CA3AF' : color};">
+        <div class="lab-card-header">
+          <div class="lab-subject-name" style="color:${entry.skip ? '#9CA3AF' : color};">${subject}</div>
+          <button class="lab-skip-btn ${entry.skip ? 'skip-active' : ''}" onclick="toggleLabSkip('${escapedSubject}')" title="Is subject mein kuch nahi hai">
+            ${entry.skip ? '&#10003; Kuch Nahi Hai' : 'Kuch Nahi Hai'}
+          </button>
+        </div>
+        ${entry.skip ? `<div class="lab-skip-note">Is subject mein Lab Record / Learning / Assignment nahi hai</div>` : `
+        ${renderProgressSection('Lab Record', '&#128300;', 'lab', entry, escapedSubject, today)}
+        ${renderProgressSection('Learning Record', '&#128214;', 'learning', entry, escapedSubject, today)}
+        ${renderAssignmentsSection(entry, escapedSubject, today)}
+        `}
       </div>`;
   });
 
