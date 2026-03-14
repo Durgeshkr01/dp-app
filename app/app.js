@@ -29,7 +29,7 @@ function handleExcelUpload(event) {
       if (!parsed) { showToast('Invalid format! Please check your file.'); return; }
       TIMETABLE = parsed;
       localStorage.setItem(TT_STORAGE_KEY, JSON.stringify(TIMETABLE));
-      showToast('Timetable uploaded successfully! âœ“');
+      showToast('Timetable uploaded successfully! OK');
       renderTimetable();
       renderHomeSummary();
     } catch (err) {
@@ -82,7 +82,7 @@ function parseSheetRows(rows) {
       const isEnd = j === cells.length;
 
       if ((isNewCell || isEnd) && curSubject !== null) {
-        // Calculate time range: from timeSlots[startIdx] start â†’ timeSlots[j-1] end
+        // Calculate time range: from timeSlots[startIdx] start -> timeSlots[j-1] end
         const tStart = slotStart(timeSlots[startIdx] || '');
         const tEnd   = slotEnd(timeSlots[Math.min(j, timeSlots.length) - 1] || '');
         periods.push({
@@ -111,19 +111,19 @@ function parseSheetRows(rows) {
 }
 
 function formatTimeSlot(raw) {
-  // Normalize: "9.30AM-10.30AM" â†’ "9:30 AM - 10:30 AM"
+  // Normalize: "9.30AM-10.30AM" -> "9:30 AM - 10:30 AM"
   return raw.replace(/\./g, ':').replace(/([APap][Mm])/g, ' $1').trim();
 }
 
 function slotStart(slot) {
   if (!slot) return '';
-  const m = slot.match(/^(.+?)\s*[-â€“]\s*(.+)$/);
+  const m = slot.match(/^(.+?)\s*-\s*(.+)$/);
   return m ? m[1].trim() : slot.trim();
 }
 
 function slotEnd(slot) {
   if (!slot) return '';
-  const m = slot.match(/^(.+?)\s*[-â€“]\s*(.+)$/);
+  const m = slot.match(/^(.+?)\s*-\s*(.+)$/);
   return m ? m[2].trim() : slot.trim();
 }
 
@@ -132,7 +132,7 @@ function extractSubjectRoom(raw) {
   let room = '';
   let subject = raw.trim();
 
-  // Pattern 1: Room code at end â€” "Subject C-205", "Subject C-127", "IOT C-133"
+  // Pattern 1: Room code at end - "Subject C-205", "Subject C-127", "IOT C-133"
   // Room = letter(s)-number(s) at the very end, e.g. C-205, C-127, C-133
   const roomEndMatch = subject.match(/\s+([A-Z]{1,4}-\d{1,4}[A-Z]?)\s*$/i);
   if (roomEndMatch) {
@@ -141,7 +141,7 @@ function extractSubjectRoom(raw) {
     return { subject, room };
   }
 
-  // Pattern 2: Room in brackets at end â€” "Subject (C-205)"
+  // Pattern 2: Room in brackets at end - "Subject (C-205)"
   const bracketMatch = subject.match(/\(([A-Z]{1,4}-?\d{1,4}[A-Z]?)\)\s*$/i);
   if (bracketMatch) {
     room = bracketMatch[1].trim();
@@ -149,7 +149,7 @@ function extractSubjectRoom(raw) {
     return { subject, room };
   }
 
-  // Pattern 3: Lab room â€” "Lab-1", "LAB-4" etc at end
+  // Pattern 3: Lab room - "Lab-1", "LAB-4" etc at end
   const labMatch = subject.match(/\s+((?:CSE\s+)?Lab[-\s]?\d+)\s*$/i);
   if (labMatch) {
     room = labMatch[1].trim();
@@ -208,7 +208,7 @@ function saveKhataToStorage() {
     skip: false,                          // "Kuch Nahi Hai"
     lab:  { total:0, done:0, verified:0, deadline:'' },
     learning: { total:0, done:0, verified:0, deadline:'' },
-    assignments: [                        // array — one per assignment
+    assignments: [                        // array - one per assignment
       { id:'...', written:false, verified:false, deadline:'' }
     ]
   }
@@ -616,7 +616,7 @@ function renderTimetable() {
     const shortIdx = DAYS.indexOf(day);
     const btn = document.createElement('button');
     btn.className = 'day-tab' + (day === selectedDay ? ' active' : '') + (day === today && day !== selectedDay ? ' today' : '');
-    btn.textContent = DAY_SHORT[shortIdx] + (day === today ? ' â˜…' : '');
+    btn.textContent = DAY_SHORT[shortIdx] + (day === today ? ' *' : '');
     btn.onclick = () => { selectedDay = day; renderTimetable(); };
     tabsEl.appendChild(btn);
   });
@@ -648,7 +648,7 @@ function renderDaySchedule(day) {
   const periods = TIMETABLE[day] || [];
 
   if (day === 'Sunday' || periods.length === 0) {
-    content.innerHTML = `<div class="no-class"><i class="fa-solid fa-umbrella-beach"></i><p>No class today!<br/>Enjoy your day ðŸ˜´</p></div>`;
+    content.innerHTML = `<div class="no-class"><i class="fa-solid fa-umbrella-beach"></i><p>No class today!<br/>Enjoy your day</p></div>`;
     return;
   }
 
@@ -663,7 +663,7 @@ function renderDaySchedule(day) {
 
     if (isLunch) {
       return `<div style="text-align:center;padding:8px 0;color:var(--text-muted);font-size:13px;font-weight:600;">
-        ðŸ½ï¸ â”€â”€ Lunch Break (${p.time}) â”€â”€</div>`;
+        Lunch Break (${p.time})</div>`;
     }
 
     if (isSpecial) {
@@ -680,7 +680,7 @@ function renderDaySchedule(day) {
       <div class="period-info">
         <div class="period-subject">${p.subject}</div>
         ${p.teacher ? `<div class="period-teacher">${p.teacher}</div>` : ''}
-        ${isCurrent ? '<span class="period-now-badge">â— Ongoing</span>' : ''}
+        ${isCurrent ? '<span class="period-now-badge">o Ongoing</span>' : ''}
       </div>
       ${p.room ? `<div class="period-room">${p.room}</div>` : ''}
     </div>`;
@@ -713,11 +713,11 @@ function renderHomeSummary() {
   const greetEl = document.getElementById('welcome-greeting');
   const streakEl = document.getElementById('streak-badge');
   const name = getUserName();
-  if (greetEl) greetEl.textContent = name ? `Hello, ${name}! ðŸ‘‹` : 'Hello! ðŸ‘‹';
+  if (greetEl) greetEl.textContent = name ? `Hello, ${name}!` : 'Hello!';
   const streak = getStreak();
   if (streakEl) {
     streakEl.innerHTML = streak > 0
-      ? `<span class="streak-badge">ðŸ”¥ ${streak} day${streak>1?'s':''}</span>` : '';
+      ? `<span class="streak-badge">Streak ${streak} day${streak>1?'s':''}</span>` : '';
   }
 
   const today    = getTodayName();
@@ -735,30 +735,30 @@ function renderHomeSummary() {
   summaryEl.innerHTML = `
 
     <!-- Aaj Ka Din glance -->
-    <div class="aajkadin-header">âš¡ Aaj Ka Din</div>
+    <div class="aajkadin-header">Aaj Ka Din</div>
     <div class="aajkadin-grid">
 
       <!-- Next Class -->
       <div class="akd-card class-card" onclick="showPage('timetable')">
-        <div class="akd-icon">ðŸ“š</div>
+        <div class="akd-icon">CLS</div>
         <div class="akd-info">
           <div class="akd-label">Next Class</div>
           ${nextCls
             ? `<div class="akd-value">${nextCls.subject}</div>
-               <div class="akd-sub">${nextCls.ongoing ? 'ðŸŸ¢ Ongoing' : nextCls.time.split('-')[0].trim()}</div>`
-            : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">No more classes ðŸŽ‰</div>`
+              <div class="akd-sub">${nextCls.ongoing ? 'Ongoing' : nextCls.time.split('-')[0].trim()}</div>`
+            : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">No more classes</div>`
           }
         </div>
       </div>
 
       <!-- Mess Today -->
       <div class="akd-card mess-card-home" onclick="showPage('mess')">
-        <div class="akd-icon">${todayMess ? todayMess.icon : 'ðŸ½ï¸'}</div>
+        <div class="akd-icon">${todayMess ? todayMess.icon : 'MEAL'}</div>
         <div class="akd-info">
           <div class="akd-label">${todayMess ? todayMess.label : 'Mess Menu'}</div>
           ${todayMess
             ? `<div class="akd-value" style="font-size:12px;line-height:1.4;">${todayMess.items.split(',').slice(0,2).join(', ')}&hellip;</div>
-               <div class="akd-sub">${todayMess.mess === 'north' ? 'ðŸ  North' : 'ðŸ  South'}</div>`
+               <div class="akd-sub">${todayMess.mess === 'north' ? 'North' : 'South'}</div>`
             : `<div class="akd-value" style="color:var(--text-muted);font-size:13px;">Tap to check menu</div>`
           }
         </div>
@@ -766,12 +766,12 @@ function renderHomeSummary() {
 
       <!-- Budget -->
       <div class="akd-card budget-card-home" onclick="showPage('budget')">
-        <div class="akd-icon">ðŸ’°</div>
+        <div class="akd-icon">RS</div>
         <div class="akd-info">
           <div class="akd-label">Pocket Money</div>
           ${budgetData.monthly > 0
-            ? `<div class="akd-value ${left<0?'danger-text':''}">â‚¹${Math.abs(left).toLocaleString('en-IN')} ${left<0?'over':'left'}</div>
-               <div class="akd-sub">Spent â‚¹${spent.toLocaleString('en-IN')}</div>`
+            ? `<div class="akd-value ${left<0?'danger-text':''}">Rs.${Math.abs(left).toLocaleString('en-IN')} ${left<0?'over':'left'}</div>
+              <div class="akd-sub">Spent Rs.${spent.toLocaleString('en-IN')}</div>`
             : `<div class="akd-value" style="color:var(--primary);font-size:12px;">+ Set monthly budget</div>`
           }
         </div>
@@ -779,11 +779,11 @@ function renderHomeSummary() {
 
       <!-- Khata -->
       <div class="akd-card khata-card-home" onclick="showPage('khata')">
-        <div class="akd-icon">ðŸ“’</div>
+        <div class="akd-icon">K</div>
         <div class="akd-info">
           <div class="akd-label">Khata</div>
-          <div class="akd-value" style="color:#22C55E;font-size:13px;">â†“ â‚¹${totalLena.toLocaleString('en-IN')}</div>
-          <div class="akd-sub" style="color:#EF4444;">â†‘ â‚¹${totalDena.toLocaleString('en-IN')}</div>
+          <div class="akd-value" style="color:#22C55E;font-size:13px;">IN Rs.${totalLena.toLocaleString('en-IN')}</div>
+          <div class="akd-sub" style="color:#EF4444;">OUT Rs.${totalDena.toLocaleString('en-IN')}</div>
         </div>
       </div>
 
@@ -818,11 +818,11 @@ function renderKhataList() {
   document.getElementById('khata-summary-bar').innerHTML = `
     <div class="ksb-card lena">
       <div class="ksb-label">I Will Receive</div>
-      <div class="ksb-value">â‚¹${totalLena.toLocaleString('en-IN')}</div>
+      <div class="ksb-value">Rs.${totalLena.toLocaleString('en-IN')}</div>
     </div>
     <div class="ksb-card dena">
       <div class="ksb-label">I Need to Pay</div>
-      <div class="ksb-value">â‚¹${totalDena.toLocaleString('en-IN')}</div>
+      <div class="ksb-value">Rs.${totalDena.toLocaleString('en-IN')}</div>
     </div>
   `;
 
@@ -852,10 +852,10 @@ function renderKhataList() {
       <div class="khata-info">
         <div class="khata-naam">${person.naam}</div>
         <div class="khata-note">${note}</div>
-        <div class="khata-txn-count">${person.phone ? `<i class="fa-brands fa-whatsapp" style="color:#25D366"></i> +91 ${person.phone} &nbsp;Â·&nbsp; ` : ''}${person.transactions.length} transaction${person.transactions.length !== 1 ? 's' : ''}</div>
+        <div class="khata-txn-count">${person.phone ? `<i class="fa-brands fa-whatsapp" style="color:#25D366"></i> +91 ${person.phone} &nbsp;-&nbsp; ` : ''}${person.transactions.length} transaction${person.transactions.length !== 1 ? 's' : ''}</div>
       </div>
       <div class="khata-amount">
-        <div class="amount ${amountClass}">â‚¹${Math.abs(net).toLocaleString('en-IN')}</div>
+        <div class="amount ${amountClass}">Rs.${Math.abs(net).toLocaleString('en-IN')}</div>
         <div class="type-label ${labelClass}">${typeLabel}</div>
       </div>
     </div>`;
@@ -921,8 +921,8 @@ function openDetail(personId) {
   const initials = person.naam.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
 
   let netClass = net > 0 ? 'lena' : net < 0 ? 'dena' : 'settled';
-  let netText = net > 0 ? `â‚¹${net.toLocaleString('en-IN')} to receive` :
-                net < 0 ? `â‚¹${Math.abs(net).toLocaleString('en-IN')} to pay` : 'Settled âœ“';
+  let netText = net > 0 ? `Rs.${net.toLocaleString('en-IN')} to receive` :
+                net < 0 ? `Rs.${Math.abs(net).toLocaleString('en-IN')} to pay` : 'Settled OK';
 
   document.getElementById('detail-header').innerHTML = `
     <div class="detail-avatar" style="background:${color}">${initials}</div>
@@ -944,12 +944,12 @@ function openDetail(personId) {
     document.getElementById('detail-transactions').innerHTML = txns.map((t, i) => `
       <div class="txn-row">
         <div class="txn-left">
-          <div class="txn-note">${t.note || 'â€”'}</div>
+          <div class="txn-note">${t.note || '-'}</div>
           <div class="txn-date">${formatDate(t.date)}</div>
           <span class="txn-type-badge ${t.type}">${t.type === 'lena' ? 'To Receive' : 'To Pay'}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <div class="txn-amount ${t.type}">${t.type === 'lena' ? '+' : '-'}â‚¹${t.amount.toLocaleString('en-IN')}</div>
+          <div class="txn-amount ${t.type}">${t.type === 'lena' ? '+' : '-'}Rs.${t.amount.toLocaleString('en-IN')}</div>
           <button onclick="deleteTxn('${person.id}','${t.id}',event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;font-size:14px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
@@ -989,11 +989,11 @@ function sendWhatsAppReminder() {
   const net = getNetAmount(person);
   let msg = '';
   if (net > 0) {
-    msg = `Hi ${person.naam}, you owe me â‚¹${net.toLocaleString('en-IN')}. Let me know when you're free. ðŸ™`;
+    msg = `Hi ${person.naam}, you owe me Rs.${net.toLocaleString('en-IN')}. Let me know when you're free.`;
   } else if (net < 0) {
-    msg = `Hi ${person.naam}, I owe you â‚¹${Math.abs(net).toLocaleString('en-IN')}. Just reminding myself. ðŸ™`;
+    msg = `Hi ${person.naam}, I owe you Rs.${Math.abs(net).toLocaleString('en-IN')}. Just reminding myself.`;
   } else {
-    msg = `Hi ${person.naam}, our dues are all settled. Thanks! âœ…`;
+    msg = `Hi ${person.naam}, our dues are all settled. Thanks!`;
   }
 
   const url = `https://wa.me/91${person.phone}?text=${encodeURIComponent(msg)}`;
@@ -1142,10 +1142,10 @@ function initAuth() {
   document.getElementById('login-screen').style.display = 'flex';
 
   if (!hasName) {
-    // Very first time â€” ask for name
+    // Very first time - ask for name
     pinStep = 'name';
     showNameStep();
-    setLoginUITitleOnly('Welcome! ðŸ‘‹', 'Tell us your name to get started');
+    setLoginUITitleOnly('Welcome!', 'Tell us your name to get started');
     // Allow Enter key on name input
     document.getElementById('input-user-name').addEventListener('keydown', e => {
       if (e.key === 'Enter') submitName();
@@ -1158,7 +1158,7 @@ function initAuth() {
     pinStep = 'login';
     showPinStep();
     const name = getUserName();
-    setLoginUI(`Welcome back, ${name}! ðŸ‘‹`, 'Enter your PIN to open the app');
+    setLoginUI(`Welcome back, ${name}!`, 'Enter your PIN to open the app');
   }
 }
 
@@ -1169,7 +1169,7 @@ function setLoginUITitleOnly(title, sub) {
 
 function hidLoginShowApp() {
   document.getElementById('login-screen').style.display = 'none';
-  // Now do normal splash â†’ app flow
+  // Now do normal splash -> app flow
   setTimeout(() => {
     document.getElementById('splash').style.opacity = '0';
     setTimeout(() => {
@@ -1222,10 +1222,10 @@ function handlePinComplete() {
     if (pinBuffer === pinFirst) {
       localStorage.setItem(STORAGE_PIN, pinFirst);
       localStorage.setItem(STORAGE_SESS, 'true');
-      showPinSuccess('PIN set successfully! âœ“');
+      showPinSuccess('PIN set successfully! OK');
       setTimeout(() => hidLoginShowApp(), 700);
     } else {
-      showPinError('PIN did not match â€” please try again');
+      showPinError('PIN did not match - please try again');
       pinStep = 'setup';
       pinFirst = '';
       setTimeout(() => setLoginUI('Set Your PIN', 'Create a 4-digit PIN to secure your app'), 900);
@@ -1235,10 +1235,10 @@ function handlePinComplete() {
     const saved = localStorage.getItem(STORAGE_PIN);
     if (pinBuffer === saved) {
       localStorage.setItem(STORAGE_SESS, 'true');
-      showPinSuccess('âœ“');
+      showPinSuccess('OK');
       setTimeout(() => hidLoginShowApp(), 400);
     } else {
-      showPinError('Wrong PIN â€” please try again');
+      showPinError('Wrong PIN - please try again');
       shakeDots();
       pinBuffer = '';
       updateDots();
@@ -1314,7 +1314,7 @@ function getTotalSpent() {
   return getCurrentMonthExpenses().reduce((s, e) => s + e.amount, 0);
 }
 
-const BUDGET_CATS = ['ðŸ” Food', 'ðŸšŒ Travel', 'ðŸ›ï¸ Shopping', 'ðŸ“š Study', 'ðŸ’Š Health', 'ðŸŽ® Fun', 'ðŸ“¦ Other'];
+const BUDGET_CATS = ['Food', 'Travel', 'Shopping', 'Study', 'Health', 'Fun', 'Other'];
 let budgetCatFilter = 'all';
 
 function renderBudgetPage() {
@@ -1335,12 +1335,12 @@ function renderBudgetPage() {
           <div class="budget-set-row">
             <span class="budget-set-label">Monthly Budget:</span>
             <button class="budget-edit-btn" onclick="openSetBudget()">
-              ${monthly > 0 ? `â‚¹${monthly.toLocaleString('en-IN')} âœŽ` : '+ Set Budget'}
+              ${monthly > 0 ? `Rs.${monthly.toLocaleString('en-IN')} Edit` : '+ Set Budget'}
             </button>
           </div>
         </div>
         <div class="budget-left-badge ${danger ? 'danger' : warn ? 'warn' : 'safe'}">
-          <div class="blb-amount">â‚¹${Math.abs(left).toLocaleString('en-IN')}</div>
+          <div class="blb-amount">Rs.${Math.abs(left).toLocaleString('en-IN')}</div>
           <div class="blb-label">${left < 0 ? 'Over!' : 'Left'}</div>
         </div>
       </div>
@@ -1350,7 +1350,7 @@ function renderBudgetPage() {
           <div class="budget-bar-fill" style="width:${pct}%;background:${barColor};"></div>
         </div>
         <div class="budget-bar-labels">
-          <span>Spent â‚¹${spent.toLocaleString('en-IN')}</span>
+          <span>Spent Rs.${spent.toLocaleString('en-IN')}</span>
           <span>${pct}%</span>
         </div>
       </div>` : ''}
@@ -1383,13 +1383,13 @@ function renderExpenseList() {
   if (expenses.length === 0) return `<div class="budget-empty"><i class="fa-solid fa-wallet"></i><p>Koi expense nahi abhi</p></div>`;
   return expenses.map(e => `
     <div class="expense-item">
-      <div class="expense-cat-icon">${e.cat ? e.cat.split(' ')[0] : 'ðŸ“¦'}</div>
+      <div class="expense-cat-icon">${e.cat ? e.cat.split(' ')[0] : 'Other'}</div>
       <div class="expense-info">
         <div class="expense-note">${e.note || e.cat || 'Expense'}</div>
-        <div class="expense-date">${e.cat || ''}  Â·  ${formatDate(e.date)}</div>
+        <div class="expense-date">${e.cat || ''} - ${formatDate(e.date)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <div class="expense-amount">â‚¹${e.amount.toLocaleString('en-IN')}</div>
+        <div class="expense-amount">Rs.${e.amount.toLocaleString('en-IN')}</div>
         <button onclick="deleteExpense('${e.id}',event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>`).join('');
@@ -1416,7 +1416,7 @@ function saveMonthlyBudget() {
   document.getElementById('budget-set-overlay').classList.add('hidden');
   renderBudgetPage();
   renderHomeSummary();
-  showToast('Budget set ho gaya! âœ“');
+  showToast('Budget set ho gaya! OK');
 }
 
 // ---- Add Expense Modal ----
@@ -1448,7 +1448,7 @@ function saveExpense() {
   renderBudgetPage();
   renderHomeSummary();
   document.getElementById('expense-add-overlay').classList.add('hidden');
-  showToast('Expense add ho gaya! âœ“');
+  showToast('Expense add ho gaya! OK');
 }
 
 // ==================== MESS MENU DATA ====================
@@ -1475,7 +1475,7 @@ const MESS_MENU = {
   }
 };
 
-const MEAL_ICONS = { breakfast: 'ðŸŒ…', lunch: 'â˜€ï¸', snacks: 'ðŸµ', dinner: 'ðŸŒ™' };
+const MEAL_ICONS = { breakfast: 'B', lunch: 'L', snacks: 'S', dinner: 'D' };
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snacks: 'Snacks', dinner: 'Dinner' };
 
 let selectedMessDay = null;
@@ -1507,7 +1507,7 @@ function renderMessMenu() {
     const btn = document.createElement('button');
     const isToday = day === today;
     btn.className = 'day-tab' + (day === selectedMessDay ? ' active' : '') + (isToday && day !== selectedMessDay ? ' today' : '');
-    btn.textContent = DAY_SHORT[i] + (isToday ? ' â˜…' : '');
+    btn.textContent = DAY_SHORT[i] + (isToday ? ' *' : '');
     btn.onclick = () => { selectedMessDay = day; renderMessMenu(); };
     tabsEl.appendChild(btn);
   });
@@ -1523,7 +1523,7 @@ function renderMessMenu() {
         <div class="mess-meal-header">
           <span class="mess-meal-icon">${MEAL_ICONS[meal]}</span>
           <span class="mess-meal-label">${MEAL_LABELS[meal]}</span>
-          ${isCurrentMeal ? '<span class="mess-now-badge">â— Now</span>' : ''}
+          ${isCurrentMeal ? '<span class="mess-now-badge">o Now</span>' : ''}
         </div>
         <div class="mess-meal-items">${dayMenu[meal]}</div>
       </div>`;
