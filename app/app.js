@@ -713,11 +713,11 @@ function renderHomeSummary() {
   const greetEl = document.getElementById('welcome-greeting');
   const streakEl = document.getElementById('streak-badge');
   const name = getUserName();
-  if (greetEl) greetEl.textContent = name ? `Hello, ${name}!` : 'Hello!';
+  if (greetEl) greetEl.textContent = name ? `Hello, ${name}! 👋` : 'Hello! 👋';
   const streak = getStreak();
   if (streakEl) {
     streakEl.innerHTML = streak > 0
-      ? `<span class="streak-badge">Streak ${streak} day${streak>1?'s':''}</span>` : '';
+      ? `<span class="streak-badge">🔥 ${streak} day${streak>1?'s':''}</span>` : '';
   }
 
   const today    = getTodayName();
@@ -740,7 +740,7 @@ function renderHomeSummary() {
 
       <!-- Next Class -->
       <div class="akd-card class-card" onclick="showPage('timetable')">
-        <div class="akd-icon">CLS</div>
+        <div class="akd-icon">📚</div>
         <div class="akd-info">
           <div class="akd-label">Next Class</div>
           ${nextCls
@@ -753,7 +753,7 @@ function renderHomeSummary() {
 
       <!-- Mess Today -->
       <div class="akd-card mess-card-home" onclick="showPage('mess')">
-        <div class="akd-icon">${todayMess ? todayMess.icon : 'MEAL'}</div>
+        <div class="akd-icon">${todayMess ? todayMess.icon : '🍽️'}</div>
         <div class="akd-info">
           <div class="akd-label">${todayMess ? todayMess.label : 'Mess Menu'}</div>
           ${todayMess
@@ -766,7 +766,7 @@ function renderHomeSummary() {
 
       <!-- Budget -->
       <div class="akd-card budget-card-home" onclick="showPage('budget')">
-        <div class="akd-icon">RS</div>
+        <div class="akd-icon">💰</div>
         <div class="akd-info">
           <div class="akd-label">Pocket Money</div>
           ${budgetData.monthly > 0
@@ -779,7 +779,7 @@ function renderHomeSummary() {
 
       <!-- Khata -->
       <div class="akd-card khata-card-home" onclick="showPage('khata')">
-        <div class="akd-icon">K</div>
+        <div class="akd-icon">📒</div>
         <div class="akd-info">
           <div class="akd-label">Khata</div>
           <div class="akd-value" style="color:#22C55E;font-size:13px;">IN Rs.${totalLena.toLocaleString('en-IN')}</div>
@@ -1475,7 +1475,7 @@ const MESS_MENU = {
   }
 };
 
-const MEAL_ICONS = { breakfast: 'B', lunch: 'L', snacks: 'S', dinner: 'D' };
+const MEAL_ICONS = { breakfast: '🌅', lunch: '☀️', snacks: '🍵', dinner: '🌙' };
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snacks: 'Snacks', dinner: 'Dinner' };
 
 let selectedMessDay = null;
