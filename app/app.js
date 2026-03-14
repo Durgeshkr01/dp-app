@@ -563,7 +563,7 @@ function showPage(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-' + page).classList.add('active');
 
-  const titles = { home: 'CampusKit', timetable: 'Class Timetable', khata: 'Khata Book', mess: 'Mess Menu', budget: 'Pocket Money', lab: 'Lab Assignments' };
+  const titles = { home: 'CampusKit', timetable: 'Class Timetable', khata: 'Khata Book', mess: 'Mess Menu', budget: 'Pocket Money', lab: 'Lab Assignments', diet: 'AI Diet Tracker' };
   document.getElementById('page-title').textContent = titles[page] || 'CampusKit';
 
   const khataHeaderBtn = document.getElementById('khata-header-btn');
@@ -580,6 +580,7 @@ function showPage(page) {
   if (page === 'mess') renderMessMenu();
   if (page === 'budget') renderBudgetPage();
   if (page === 'lab') renderLabPage();
+  if (page === 'diet') renderDietPage();
 }
 
 // ==================== TIMETABLE ====================
@@ -1542,6 +1543,383 @@ function getCurrentMealTime() {
 function switchMess(choice) {
   setMessChoice(choice);
   renderMessMenu();
+}
+
+// ==================== AI DIET TRACKER ====================
+const DIET_TARGET_KEY = 'campuskit_diet_target';
+const DIET_LOG_KEY = 'campuskit_diet_logs';
+
+let dietTarget = JSON.parse(localStorage.getItem(DIET_TARGET_KEY) || 'null') || {
+  calories: 2200,
+  protein: 110,
+};
+
+let dietLogs = JSON.parse(localStorage.getItem(DIET_LOG_KEY) || 'null') || {};
+
+const LOCAL_FOOD_MACROS = [
+  { keys: ['rice', 'fried rice', 'bagara'], calories: 190, protein: 4 },
+  { keys: ['dal', 'rasam', 'sambar', 'charu'], calories: 110, protein: 5 },
+  { keys: ['roti', 'chapati', 'puri', 'poori'], calories: 110, protein: 3 },
+  { keys: ['idli', 'idili', 'vada', 'bonda', 'uttapam', 'upma', 'poha', 'punugulu'], calories: 180, protein: 5 },
+  { keys: ['paneer'], calories: 220, protein: 14 },
+  { keys: ['chicken', 'egg'], calories: 240, protein: 20 },
+  { keys: ['soyabean', 'chana', 'kabuli', 'sprout', 'moong', 'peanut'], calories: 170, protein: 9 },
+  { keys: ['raita', 'curd', 'dahi'], calories: 95, protein: 4 },
+  { keys: ['kheer', 'halwa', 'malpua', 'laddu', 'jam'], calories: 230, protein: 3 },
+  { keys: ['chips', 'papad', 'fry'], calories: 120, protein: 2 },
+  { keys: ['corn'], calories: 100, protein: 3 },
+  { keys: ['veg', 'curry', 'masala', 'khurma'], calories: 130, protein: 4 },
+];
+
+function saveDietState() {
+  localStorage.setItem(DIET_TARGET_KEY, JSON.stringify(dietTarget));
+  localStorage.setItem(DIET_LOG_KEY, JSON.stringify(dietLogs));
+}
+
+function getTodayDietLog(createIfMissing = true) {
+  const key = getTodayDateStr();
+  if (!dietLogs[key] && createIfMissing) {
+    dietLogs[key] = {
+      date: key,
+      mess: getMessChoice(),
+      plan: null,
+      eaten: {},
+      outside: [],
+    };
+  }
+  return dietLogs[key] || null;
+}
+
+function safeNum(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function parseMenuItems(raw) {
+  if (!raw) return [];
+  return String(raw)
+    .split(',')
+    .map(x => x.trim())
+    .filter(Boolean)
+    .map(x => x.replace(/\s+/g, ' '));
+}
+
+function estimateMacros(itemName) {
+  const text = String(itemName || '').toLowerCase();
+  const hit = LOCAL_FOOD_MACROS.find(entry => entry.keys.some(k => text.includes(k)));
+  if (hit) return { calories: hit.calories, protein: hit.protein };
+  return { calories: 140, protein: 4 };
+}
+
+function normalizePlanShape(mealsObj) {
+  const meals = ['breakfast', 'lunch', 'snacks', 'dinner'];
+  const out = {};
+  meals.forEach(meal => {
+    const arr = Array.isArray(mealsObj?.[meal]) ? mealsObj[meal] : [];
+    out[meal] = arr
+      .filter(x => x && x.name)
+      .map(x => ({
+        name: String(x.name).trim(),
+        calories: Math.max(0, Math.round(safeNum(x.calories, 0))),
+        protein: Math.max(0, Math.round(safeNum(x.protein, 0))),
+      }));
+  });
+  return out;
+}
+
+function buildLocalDietPlan(mess, day) {
+  const menu = (MESS_MENU[mess] && MESS_MENU[mess][day]) || {};
+  const meals = {};
+  ['breakfast', 'lunch', 'snacks', 'dinner'].forEach(meal => {
+    const items = parseMenuItems(menu[meal]).slice(0, 5);
+    meals[meal] = items.map(item => {
+      const m = estimateMacros(item);
+      return { name: item, calories: m.calories, protein: m.protein };
+    });
+  });
+  return {
+    source: 'local',
+    note: 'Local AI-style estimate based on menu',
+    meals,
+  };
+}
+
+function cleanJsonText(raw) {
+  let txt = String(raw || '').trim();
+  txt = txt.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+  const start = txt.indexOf('{');
+  const end = txt.lastIndexOf('}');
+  if (start >= 0 && end > start) txt = txt.slice(start, end + 1);
+  return txt;
+}
+
+async function fetchAIDietPlan(mess, day) {
+  const menu = (MESS_MENU[mess] && MESS_MENU[mess][day]) || {};
+  const response = await fetch('/api/diet-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      day,
+      mess,
+      target: dietTarget,
+      menu,
+    }),
+  });
+  if (!response.ok) throw new Error('AI endpoint failed');
+  const payload = await response.json();
+  if (!payload || !payload.ok) throw new Error('Invalid AI response');
+
+  let parsed = null;
+  if (payload.plan && typeof payload.plan === 'object') {
+    parsed = payload.plan;
+  } else if (typeof payload.text === 'string') {
+    parsed = JSON.parse(cleanJsonText(payload.text));
+  }
+  if (!parsed || !parsed.meals) throw new Error('Missing meals');
+
+  return {
+    source: 'ai',
+    note: parsed.note || 'AI generated using your mess menu',
+    meals: normalizePlanShape(parsed.meals),
+  };
+}
+
+async function ensureDietPlanForToday(force = false) {
+  const log = getTodayDietLog(true);
+  const day = getTodayName();
+  const mess = getMessChoice();
+
+  if (!force && log.plan && log.mess === mess) return;
+
+  try {
+    log.plan = await fetchAIDietPlan(mess, day);
+  } catch (_) {
+    log.plan = buildLocalDietPlan(mess, day);
+  }
+  log.mess = mess;
+  log.eaten = {};
+  saveDietState();
+}
+
+function getPlanItemId(meal, idx) {
+  return `${meal}:${idx}`;
+}
+
+function getDietTotals(log) {
+  const totals = {
+    cal: 0,
+    protein: 0,
+    targetCal: safeNum(dietTarget.calories, 2200),
+    targetProtein: safeNum(dietTarget.protein, 110),
+  };
+
+  if (!log || !log.plan || !log.plan.meals) return totals;
+
+  Object.keys(log.plan.meals).forEach(meal => {
+    (log.plan.meals[meal] || []).forEach((item, idx) => {
+      const id = getPlanItemId(meal, idx);
+      if (log.eaten[id]) {
+        totals.cal += safeNum(item.calories, 0);
+        totals.protein += safeNum(item.protein, 0);
+      }
+    });
+  });
+
+  (log.outside || []).forEach(entry => {
+    totals.cal += safeNum(entry.calories, 0);
+    totals.protein += safeNum(entry.protein, 0);
+  });
+
+  totals.cal = Math.round(totals.cal);
+  totals.protein = Math.round(totals.protein);
+  return totals;
+}
+
+function getDietProgressPercent(consumed, target) {
+  if (target <= 0) return 0;
+  return Math.min(100, Math.round((consumed / target) * 100));
+}
+
+async function renderDietPage() {
+  const container = document.getElementById('diet-page-content');
+  if (!container) return;
+
+  container.innerHTML = '<div class="diet-note-card">Generating your plan...</div>';
+  await ensureDietPlanForToday(false);
+
+  const log = getTodayDietLog(true);
+  const totals = getDietTotals(log);
+  const calPct = getDietProgressPercent(totals.cal, totals.targetCal);
+  const proPct = getDietProgressPercent(totals.protein, totals.targetProtein);
+
+  const mealCards = ['breakfast', 'lunch', 'snacks', 'dinner'].map(meal => {
+    const mealItems = (log.plan?.meals?.[meal] || []);
+    const mealLabel = MEAL_LABELS[meal] || meal;
+    const icon = MEAL_ICONS[meal] || '🍽️';
+
+    const itemsHtml = mealItems.length
+      ? mealItems.map((item, idx) => {
+          const id = getPlanItemId(meal, idx);
+          const checked = !!log.eaten[id];
+          return `
+            <label class="diet-item-row">
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleDietItem('${meal}', ${idx})" />
+              <div class="diet-item-main">
+                <div class="diet-item-name">${item.name}</div>
+                <div class="diet-item-macro">${item.calories} kcal • ${item.protein} g protein</div>
+              </div>
+            </label>`;
+        }).join('')
+      : '<div class="diet-sub">No menu item available.</div>';
+
+    return `
+      <div class="diet-meal-card">
+        <div class="diet-meal-head">
+          <div class="diet-meal-title">${icon} ${mealLabel}</div>
+          <div class="diet-sub">${mealItems.length} items</div>
+        </div>
+        ${itemsHtml}
+      </div>`;
+  }).join('');
+
+  const outsideHtml = (log.outside || []).map((entry, idx) => `
+    <div class="diet-outside-item">
+      <div>
+        <div class="name">${entry.name}</div>
+        <div class="meta">${entry.calories} kcal • ${entry.protein} g protein</div>
+      </div>
+      <button class="diet-del-btn" onclick="deleteOutsideFood(${idx})" title="Delete">×</button>
+    </div>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="diet-target-card">
+      <div class="diet-head-row">
+        <div>
+          <div class="diet-title">Daily Target</div>
+          <div class="diet-sub">Set once, update anytime</div>
+        </div>
+        <button class="diet-btn soft" onclick="saveDietTargetFromUI()">Save</button>
+      </div>
+      <div class="diet-target-grid">
+        <div class="diet-input-wrap">
+          <label>Calories</label>
+          <input type="number" id="diet-target-cal" value="${totals.targetCal}" min="1000" />
+        </div>
+        <div class="diet-input-wrap">
+          <label>Protein (g)</label>
+          <input type="number" id="diet-target-protein" value="${totals.targetProtein}" min="30" />
+        </div>
+      </div>
+    </div>
+
+    <div class="diet-progress-card">
+      <div class="diet-head-row">
+        <div>
+          <div class="diet-title">Today Progress</div>
+          <div class="diet-sub">${log.plan?.source === 'ai' ? 'AI generated from mess menu' : 'Local estimate mode'}</div>
+        </div>
+      </div>
+      <div class="diet-metrics">
+        <div class="diet-metric">
+          <div class="diet-metric-label">Calories</div>
+          <div class="diet-metric-value">${totals.cal}/${totals.targetCal}</div>
+          <div class="diet-sub">Remaining ${Math.max(0, totals.targetCal - totals.cal)}</div>
+        </div>
+        <div class="diet-metric">
+          <div class="diet-metric-label">Protein</div>
+          <div class="diet-metric-value">${totals.protein}g/${totals.targetProtein}g</div>
+          <div class="diet-sub">Remaining ${Math.max(0, totals.targetProtein - totals.protein)}g</div>
+        </div>
+      </div>
+      <div class="diet-sub" style="margin-top:8px;">Target achieved: ${Math.min(calPct, proPct)}%</div>
+      <div class="diet-meter"><div class="diet-meter-fill" style="width:${Math.max(calPct, proPct)}%"></div></div>
+    </div>
+
+    <div class="diet-actions">
+      <button class="diet-btn primary" onclick="regenerateDietPlan()">Regenerate AI Plan</button>
+      <button class="diet-btn soft" onclick="resetTodayDietLog()">Reset Today</button>
+    </div>
+
+    ${mealCards}
+
+    <div class="diet-outside-card">
+      <div class="diet-title">Outside Food</div>
+      <div class="diet-sub">Add any extra items eaten outside mess</div>
+      <div class="diet-outside-grid">
+        <input id="diet-outside-name" type="text" placeholder="Item name" />
+        <input id="diet-outside-cal" type="number" placeholder="kcal" min="0" />
+        <input id="diet-outside-protein" type="number" placeholder="protein g" min="0" />
+      </div>
+      <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+        <button class="diet-btn primary" onclick="addOutsideFood()">Add</button>
+      </div>
+      <div class="diet-outside-list">
+        ${outsideHtml || '<div class="diet-sub">No outside food added today.</div>'}
+      </div>
+    </div>
+
+    <div class="diet-note-card">
+      Note: Calories/protein are estimates based on menu text. For best accuracy, update outside items with real macros.
+    </div>
+  `;
+}
+
+function saveDietTargetFromUI() {
+  const cal = safeNum(document.getElementById('diet-target-cal')?.value, dietTarget.calories);
+  const protein = safeNum(document.getElementById('diet-target-protein')?.value, dietTarget.protein);
+  if (cal < 1000 || protein < 30) {
+    showToast('Please enter realistic targets');
+    return;
+  }
+  dietTarget = { calories: Math.round(cal), protein: Math.round(protein) };
+  saveDietState();
+  renderDietPage();
+  showToast('Diet target saved');
+}
+
+function toggleDietItem(meal, idx) {
+  const log = getTodayDietLog(true);
+  const id = getPlanItemId(meal, idx);
+  log.eaten[id] = !log.eaten[id];
+  saveDietState();
+  renderDietPage();
+}
+
+function addOutsideFood() {
+  const log = getTodayDietLog(true);
+  const name = (document.getElementById('diet-outside-name')?.value || '').trim();
+  const calories = safeNum(document.getElementById('diet-outside-cal')?.value, 0);
+  const protein = safeNum(document.getElementById('diet-outside-protein')?.value, 0);
+
+  if (!name || calories <= 0) {
+    showToast('Enter item name and calories');
+    return;
+  }
+  log.outside.push({ name, calories: Math.round(calories), protein: Math.max(0, Math.round(protein)) });
+  saveDietState();
+  renderDietPage();
+}
+
+function deleteOutsideFood(index) {
+  const log = getTodayDietLog(true);
+  log.outside = (log.outside || []).filter((_, i) => i !== index);
+  saveDietState();
+  renderDietPage();
+}
+
+async function regenerateDietPlan() {
+  await ensureDietPlanForToday(true);
+  renderDietPage();
+  showToast('Diet plan regenerated');
+}
+
+function resetTodayDietLog() {
+  const key = getTodayDateStr();
+  delete dietLogs[key];
+  saveDietState();
+  renderDietPage();
+  showToast('Today log reset');
 }
 
 // ==================== INIT ====================

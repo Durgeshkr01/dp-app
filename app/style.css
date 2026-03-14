@@ -523,6 +523,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 
 /* ========== MESS MENU ========== */
 .mess-card .card-icon { background: linear-gradient(135deg, #F97316 0%, #FBBF24 100%); color: white; }
+.diet-card .card-icon { background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%); color: white; }
 .budget-card .card-icon { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; }
 
 /* ========== STREAK BADGE ========== */
@@ -676,6 +677,257 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 }
 .mess-meal-items {
   font-size: 14.5px; color: var(--text); line-height: 1.55; font-weight: 500;
+}
+
+/* ========== DIET TRACKER PAGE ========== */
+#diet-page-content { padding: 14px 16px 90px; }
+
+.diet-target-card,
+.diet-progress-card,
+.diet-actions,
+.diet-meal-card,
+.diet-outside-card,
+.diet-note-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.diet-target-card,
+.diet-progress-card,
+.diet-actions,
+.diet-outside-card,
+.diet-note-card {
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.diet-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.diet-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.diet-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diet-target-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.diet-input-wrap label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.diet-input-wrap input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.diet-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.diet-btn.primary {
+  color: #fff;
+  background: linear-gradient(135deg, #22C55E, #16A34A);
+}
+
+.diet-btn.soft {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.diet-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.diet-actions .diet-btn {
+  flex: 1;
+}
+
+.diet-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.diet-metric {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.diet-metric-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.diet-metric-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.diet-meter {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--border);
+  margin-top: 10px;
+}
+
+.diet-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22C55E, #16A34A);
+  transition: width 0.25s ease;
+}
+
+.diet-meal-card {
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.diet-meal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.diet-meal-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.diet-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--bg);
+  margin-bottom: 7px;
+}
+
+.diet-item-row:last-child { margin-bottom: 0; }
+
+.diet-item-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: #16A34A;
+}
+
+.diet-item-main { flex: 1; min-width: 0; }
+
+.diet-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diet-item-macro {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.diet-outside-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.diet-outside-grid input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  padding: 9px;
+  font-size: 13px;
+  background: var(--bg);
+}
+
+.diet-outside-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diet-outside-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.diet-outside-item .name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.diet-outside-item .meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.diet-del-btn {
+  border: none;
+  background: transparent;
+  color: var(--red);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.diet-note-card {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 420px) {
+  .diet-outside-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ========== LAB ASSIGNMENT PAGE ========== */

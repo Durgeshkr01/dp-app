@@ -122,6 +122,14 @@
           </div>
           <i class="fa-solid fa-chevron-right card-arrow"></i>
         </div>
+        <div class="home-card diet-card" onclick="showPage('diet')">
+          <div class="card-icon"><i class="fa-solid fa-dumbbell"></i></div>
+          <div class="card-info">
+            <h3>AI Diet Tracker</h3>
+            <p>Plan and track calories + protein</p>
+          </div>
+          <i class="fa-solid fa-chevron-right card-arrow"></i>
+        </div>
         <div class="home-card budget-card" onclick="showPage('budget')">
           <div class="card-icon"><i class="fa-solid fa-wallet"></i></div>
           <div class="card-info">
@@ -200,6 +208,11 @@
       <div id="mess-content" class="mess-content"></div>
     </div>
 
+    <!-- ========== DIET TRACKER PAGE ========== -->
+    <div id="page-diet" class="page">
+      <div id="diet-page-content"></div>
+    </div>
+
     <!-- ========== LAB ASSIGNMENT PAGE ========== -->
     <div id="page-lab" class="page">
       <div id="lab-page-content"></div>
@@ -240,6 +253,10 @@
       <button class="nav-btn" id="nav-budget" onclick="showPage('budget')">
         <i class="fa-solid fa-wallet"></i>
         <span>Budget</span>
+      </button>
+      <button class="nav-btn" id="nav-diet" onclick="showPage('diet')">
+        <i class="fa-solid fa-dumbbell"></i>
+        <span>Diet</span>
       </button>
       <button class="nav-btn" id="nav-khata" onclick="showPage('khata')">
         <i class="fa-solid fa-book-open"></i>

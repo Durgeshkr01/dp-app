@@ -1,5 +1,5 @@
 // Service Worker - Mera App (Offline Support)
-const CACHE_NAME = 'mera-app-v8';
+const CACHE_NAME = 'mera-app-v9';
 const ASSETS = [
   './',
   './index.html',
